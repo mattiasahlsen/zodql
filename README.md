@@ -58,50 +58,6 @@ const response = await client.request(query, { userId: "123" });
 ## Functions
 
 <dl>
-<dt><a href="#unwrapSchema">unwrapSchema()</a></dt>
-<dd><p>Strip the wrapper schemas (optional / nullable / default / array) that don&#39;t
-affect the emitted GraphQL selection, returning the inner schema.</p>
-<p>Wrapper layers can be nested in any combination (e.g. an optional array of
-nullable objects), so this walks inward until it hits a schema that isn&#39;t
-one of the recognized wrapper types.</p>
-</dd>
-<dt><a href="#getFieldInfo">getFieldInfo()</a></dt>
-<dd><p>Read the field metadata off a schema, or fall back to a plain object&#39;s shape.</p>
-<p>Fields built with <code>zodqlField().toSchema(...)</code> carry their selection metadata
-(core shape, arguments, alias, fragments) under symbol keys on the (unwrapped)
-schema; this reads it back out. A plain <code>z.object(...)</code> schema with no such
-metadata is still treated as a selection, using its own shape and no
-arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
-GraphQL scalar/leaf field, for which this returns <code>null</code>.</p>
-</dd>
-<dt><a href="#buildFieldLines">buildFieldLines()</a></dt>
-<dd><p>Emit the selection lines for a single field, recursing into its children.</p>
-<p>Leaf/scalar fields (where <a href="#getFieldInfo">getFieldInfo</a> returns <code>null</code>) are emitted as
-a bare field name. Fields with metadata are emitted as <code>name { ... }</code>,
-optionally rewritten to <code>alias: name { ... }</code> when the field was built with
-<code>asAliasFor()</code>, and with <code>(arg: value, ...)</code> appended when arguments were
-attached via <code>withArguments()</code>. Inside the block:</p>
-<ul>
-<li>Child fields from the field&#39;s own core shape are emitted first.</li>
-<li>If the field has union fragments, a <code>__typename</code> selection is added so the
-response can be discriminated at parse time.</li>
-<li>Inline regular fragments (<code>inline: true</code>) have their fields spread directly
-into the block; named regular fragments are referenced via <code>...FragmentName</code>.</li>
-<li>Union fragments are always referenced via <code>...FragmentName</code>; they must be
-given a <code>name</code> (rather than <code>inline: true</code>) or the reference won&#39;t resolve
-to an emitted fragment definition.</li>
-</ul>
-</dd>
-<dt><a href="#collectFragments">collectFragments()</a></dt>
-<dd><p>Collect the named fragments reachable from a document, in the order they
-should be emitted (depth-first, own fragments before nested selections).</p>
-<p>Only fragments with a <code>name</code> are collected here — inline fragments (<code>inline: true</code>) have no standalone definition to emit, since their fields are spread
-directly into the parent selection by <a href="#buildFieldLines">buildFieldLines</a>. Each named
-fragment is emitted at most once, keyed by name, even if it&#39;s attached to
-multiple fields (regular fragment) or reused across separate <code>withUnionFragments</code>
-calls. A fragment&#39;s own selection is walked recursively so fragments nested
-inside another fragment&#39;s schema (including inline ones) are also collected.</p>
-</dd>
 <dt><a href="#zodql">zodql(operation, documentSchema, [options])</a> ⇒ <code>ZodqlBuilder</code></dt>
 <dd><p>Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas.</p>
 <p>This function initializes a builder that can be used to define variables and compile
@@ -178,65 +134,6 @@ useful for nullable GraphQL union/interface fields.</p>
 </dd>
 </dl>
 
-<a name="unwrapSchema"></a>
-
-## unwrapSchema()
-Strip the wrapper schemas (optional / nullable / default / array) that don't
-affect the emitted GraphQL selection, returning the inner schema.
-
-Wrapper layers can be nested in any combination (e.g. an optional array of
-nullable objects), so this walks inward until it hits a schema that isn't
-one of the recognized wrapper types.
-
-**Kind**: global function  
-<a name="getFieldInfo"></a>
-
-## getFieldInfo()
-Read the field metadata off a schema, or fall back to a plain object's shape.
-
-Fields built with `zodqlField().toSchema(...)` carry their selection metadata
-(core shape, arguments, alias, fragments) under symbol keys on the (unwrapped)
-schema; this reads it back out. A plain `z.object(...)` schema with no such
-metadata is still treated as a selection, using its own shape and no
-arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
-GraphQL scalar/leaf field, for which this returns `null`.
-
-**Kind**: global function  
-<a name="buildFieldLines"></a>
-
-## buildFieldLines()
-Emit the selection lines for a single field, recursing into its children.
-
-Leaf/scalar fields (where [getFieldInfo](#getFieldInfo) returns `null`) are emitted as
-a bare field name. Fields with metadata are emitted as `name { ... }`,
-optionally rewritten to `alias: name { ... }` when the field was built with
-`asAliasFor()`, and with `(arg: value, ...)` appended when arguments were
-attached via `withArguments()`. Inside the block:
-- Child fields from the field's own core shape are emitted first.
-- If the field has union fragments, a `__typename` selection is added so the
-  response can be discriminated at parse time.
-- Inline regular fragments (`inline: true`) have their fields spread directly
-  into the block; named regular fragments are referenced via `...FragmentName`.
-- Union fragments are always referenced via `...FragmentName`; they must be
-  given a `name` (rather than `inline: true`) or the reference won't resolve
-  to an emitted fragment definition.
-
-**Kind**: global function  
-<a name="collectFragments"></a>
-
-## collectFragments()
-Collect the named fragments reachable from a document, in the order they
-should be emitted (depth-first, own fragments before nested selections).
-
-Only fragments with a `name` are collected here — inline fragments (`inline:
-true`) have no standalone definition to emit, since their fields are spread
-directly into the parent selection by [buildFieldLines](#buildFieldLines). Each named
-fragment is emitted at most once, keyed by name, even if it's attached to
-multiple fields (regular fragment) or reused across separate `withUnionFragments`
-calls. A fragment's own selection is walked recursively so fragments nested
-inside another fragment's schema (including inline ones) are also collected.
-
-**Kind**: global function  
 <a name="zodql"></a>
 
 ## zodql(operation, documentSchema, [options]) ⇒ <code>ZodqlBuilder</code>
