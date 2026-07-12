@@ -219,22 +219,21 @@ function buildFragmentDefinition(fragment: QueryFragment): string[] {
   return lines;
 }
 
-export type ZodqlOptions = {
-  operationName?: string;
-};
-
 /**
  * Optional settings for a `zodql` operation.
- *
- * @typedef {Object} ZodqlOptions
- * @property {string} [operationName] - Optional name for the GraphQL operation.
- *   When provided, the compiled operation is emitted with this name
- *   (e.g. `query myRootQuery { ... }`), which is useful for server-side logging,
- *   tracing, and debugging. When omitted, an anonymous operation is emitted
- *   (e.g. `query { ... }`). The value must be a valid GraphQL `Name` (a letter
- *   or underscore followed by letters, digits, or underscores); otherwise
- *   `compile()` throws. See https://spec.graphql.org/October2021/#sec-Names
  */
+export type ZodqlOptions = {
+  /**
+   * Optional name for the GraphQL operation. When provided, the compiled
+   * operation is emitted with this name (e.g. `query myRootQuery { ... }`),
+   * which is useful for server-side logging, tracing, and debugging. When
+   * omitted, an anonymous operation is emitted (e.g. `query { ... }`). The value
+   * must be a valid GraphQL `Name` (a letter or underscore followed by letters,
+   * digits, or underscores); otherwise `compile()` throws.
+   * See https://spec.graphql.org/October2021/#sec-Names
+   */
+  operationName?: string;
+};
 
 /**
  * Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas.
@@ -247,11 +246,11 @@ export type ZodqlOptions = {
  * or to branch off a shared base builder. Call `compile()` last to produce the
  * final query string, variables, and schema.
  *
- * @param {("query"|"mutation")} operation - The GraphQL operation type, either "query" or "mutation"
- * @param {z.ZodObject} documentSchema - Zod schema (built from plain fields and/or `zodqlField()`
+ * @param operation - The GraphQL operation type, either "query" or "mutation"
+ * @param documentSchema - Zod schema (built from plain fields and/or `zodqlField()`
  *   fields) representing the GraphQL document's root selection set
- * @param {ZodqlOptions} [options] - Optional settings for the operation. See {@link ZodqlOptions} for the available fields.
- * @returns {ZodqlBuilder} A ZodqlBuilder instance for chaining operations
+ * @param options - Optional settings for the operation. See {@link ZodqlOptions} for the available fields.
+ * @returns A ZodqlBuilder instance for chaining operations
  *
  * @example
  * ```typescript
@@ -296,9 +295,9 @@ export function zodql<Schema extends z.ZodObject>(
  * type level; at runtime, the fragment's schema shape is checked and rejected
  * if empty, since an empty selection set is not valid GraphQL.
  *
- * @param {QueryFragment} fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
- * @returns {QueryFragment} The validated fragment definition for use in queries
- * @throws {Error} If the fragment's schema shape is an empty object
+ * @param fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
+ * @returns The validated fragment definition for use in queries
+ * @throws If the fragment's schema shape is an empty object
  *
  * @example
  * ```typescript

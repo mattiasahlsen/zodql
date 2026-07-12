@@ -62,121 +62,456 @@ const { data } = parseResponse();
 
 ## API Documentation
 
-## Functions
+## Interfaces
 
-<dl>
-<dt><a href="#zodql">zodql(operation, documentSchema, [options])</a> ⇒ <code>ZodqlBuilder</code></dt>
-<dd><p>Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas.</p>
-<p>This function initializes a builder that can be used to define variables and compile
-GraphQL query strings with associated Zod schemas for type-safe GraphQL operations.</p>
-<p>The returned builder is immutable: <code>defineVariables()</code> returns a new builder
-with the added variables rather than mutating this one, so it&#39;s safe to chain
-or to branch off a shared base builder. Call <code>compile()</code> last to produce the
-final query string, variables, and schema.</p>
-</dd>
-<dt><a href="#zodqlFragment">zodqlFragment(fragmentParam)</a> ⇒ <code><a href="#QueryFragment">QueryFragment</a></code></dt>
-<dd><p>Define a GraphQL fragment from a Zod schema.</p>
-<p>Fragments allow you to reuse common field selections across multiple queries.
-This function validates and returns a fragment definition that can be used with
-zodqlField&#39;s withFragment(), withRequiredFragment(), or withUnionFragments() methods.</p>
-<p>A fragment must either be given a <code>name</code> (emitted as a standalone named
-fragment, e.g. <code>...UserFields</code>, referenced wherever it&#39;s attached) or marked
-<code>inline: true</code> (its fields are spread directly into the parent selection
-instead, with no separate fragment definition). Union fragments (used with
-<code>withUnionFragments()</code>) must use <code>name</code>, since inline fragments have nothing
-for the <code>...FragmentName</code> reference to resolve to. This is enforced at the
-type level; at runtime, the fragment&#39;s schema shape is checked and rejected
-if empty, since an empty selection set is not valid GraphQL.</p>
-</dd>
-<dt><a href="#zodqlField">zodqlField()</a> ⇒ <code>ZodqlFieldBuilder</code></dt>
-<dd><p>Create a ZodqlFieldBuilder for building GraphQL fields with arguments, fragments, and aliases.</p>
-<p>This builder provides a fluent interface to configure GraphQL fields with:</p>
-<ul>
-<li>Arguments for parameterized queries</li>
-<li>Optional or required fragments for type-specific field selection</li>
-<li>Discriminated union fragments, selected by <code>__typename</code> at parse time</li>
-<li>Aliases to query the same field multiple times with different arguments</li>
-</ul>
-<p>Each <code>with*</code> method returns a new builder rather than mutating the current
-one, so calls can be chained freely. Call <code>toSchema()</code> last to produce the
-finished schema for use as a field&#39;s value in a document schema.</p>
-</dd>
-<dt><a href="#buildZodqlClient">buildZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code></dt>
-<dd><p>Build a Zod GraphQL client using the given HTTP client as the transport.</p>
-<p>This function creates a GraphQL client that validates and parses variables
-using their Zod schemas before sending requests, so a variable&#39;s runtime
-value can differ from its wire value (e.g. defaults, coercion, transforms).
-Any variable that parses to <code>undefined</code> is omitted from the request body
-entirely, rather than being sent as <code>undefined</code> or <code>null</code>. <code>baseClient</code>&#39;s
-configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every request
-is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> parses the
-response body as <code>{ data, extensions?, errors? }</code>, validating <code>data</code> against the
-query&#39;s schema; <code>extensions</code> and <code>errors</code> are returned as-is, unvalidated, if present.
-GraphQL errors returned in a 200 response body are therefore not thrown — the caller
-must check <code>parseResponse().errors</code> themselves. The returned promise rejects (without
-making a request) if a variable&#39;s value fails its Zod schema, e.g. a required variable
-that was omitted.</p>
-<p><code>baseClient</code> only needs to satisfy <a href="#HttpClient">HttpClient</a>: a <code>post</code> method that resolves to
-<code>{ response, json }</code>, where <code>json()</code> returns the already-parsed response body.</p>
-</dd>
-<dt><a href="#hasTypename">hasTypename(obj, typename)</a> ⇒</dt>
-<dd><p>Type guard that checks whether an object&#39;s <code>__typename</code> field matches a
-given GraphQL type name, narrowing the input union to the matching member(s).</p>
-<p>Safely handles <code>null</code> and <code>undefined</code> inputs by returning <code>false</code>, which is
-useful for nullable GraphQL union/interface fields.</p>
-</dd>
-</dl>
+### GraphqlQuerySegment
 
-## Typedefs
-
-<dl>
-<dt><a href="#ZodqlOptions">ZodqlOptions</a> : <code>Object</code></dt>
-<dd><p>Optional settings for a <code>zodql</code> operation.</p>
-</dd>
-<dt><a href="#HttpClient">HttpClient</a> : <code>Object</code></dt>
-<dd><p>An HTTP client exposing a Promise-based <code>post</code> method, used as the transport
-for a <code>ZodqlClient</code>, e.g. a thin wrapper around <code>fetch</code>.</p>
-</dd>
-<dt><a href="#ZodqlClient">ZodqlClient</a> : <code>Object</code></dt>
-<dd><p>A GraphQL client that executes compiled operations against an <a href="#HttpClient">HttpClient</a>
-transport.</p>
-</dd>
-<dt><a href="#ZodqlClientBuilder">ZodqlClientBuilder</a> ⇒ <code><a href="#ZodqlClient">ZodqlClient</a></code></dt>
-<dd><p>A factory that wraps an <a href="#HttpClient">HttpClient</a> transport in a <code>ZodqlClient</code>.</p>
-</dd>
-<dt><a href="#ResponseData">ResponseData</a> : <code>Object</code></dt>
-<dd><p>The parsed body of a GraphQL response — <code>{ data, extensions?, errors? }</code> — as
-returned by <code>parseResponse()</code>. <code>data</code> is validated against the query&#39;s schema;
-<code>extensions</code> and <code>errors</code> are returned as-is (unvalidated) when present.</p>
-</dd>
-<dt><a href="#QueryFragment">QueryFragment</a> : <code>Object</code></dt>
-<dd><p>A GraphQL fragment definition, created with <code>zodqlFragment()</code> and attached to
-a field via <code>withFragment()</code>, <code>withRequiredFragment()</code>, or <code>withUnionFragments()</code>.</p>
-<p>Must be either named or inline, not both: a named fragment (<code>name</code> set) is
-emitted once as a standalone <code>fragment Name on Type { ... }</code> and referenced as
-<code>...Name</code> (required for <code>withUnionFragments()</code>), while an inline fragment
-(<code>inline: true</code>, no <code>name</code>) has its fields spread directly into the parent
-selection as <code>... on Type { ... }</code> wherever it&#39;s attached.</p>
-</dd>
-<dt><a href="#QueryVariable">QueryVariable</a> : <code>Object</code></dt>
-<dd><p>A GraphQL operation variable, declared via <code>ZodqlBuilder.defineVariables()</code>.</p>
-</dd>
-<dt><a href="#GraphqlQuerySegment">GraphqlQuerySegment</a> : <code>Object</code></dt>
-<dd><p>A partial GraphQL query/mutation selection: the lines of one document segment
+A partial GraphQL query/mutation selection: the lines of one document segment
 plus the fragments it uses. Currently unused by the builder itself (queries
 are assembled and emitted as a whole), but available for callers composing
-query text from smaller pieces.</p>
-</dd>
-<dt><a href="#GraphqlQuery">GraphqlQuery</a> : <code>Object</code></dt>
-<dd><p>The output of <code>ZodqlBuilder.compile()</code>: a ready-to-send GraphQL operation
+query text from smaller pieces.
+
+#### Properties
+
+##### queryLines
+
+> **queryLines**: `string`[]
+
+The selection's GraphQL source lines, one array entry per line, unindented relative to the document root.
+
+##### usedFragments
+
+> **usedFragments**: [`QueryFragment`](#queryfragment)\<`Readonly`\<\{\[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\>, `string`\>[]
+
+The named fragments referenced by `queryLines`, so their definitions can be appended alongside it.
+
+***
+
+### HttpClient
+
+An HTTP client exposing a Promise-based `post` method, used as the transport
+for a `ZodqlClient`, e.g. a thin wrapper around `fetch`. It resolves to both
+the raw response and a `json()` accessor for its already-parsed body.
+
+#### Type Parameters
+
+##### Response
+
+`Response` = `unknown`
+
+##### RequestConfig
+
+`RequestConfig` = `unknown`
+
+#### Methods
+
+##### post()
+
+> **post**(`url`, `data`, `config?`): `Promise`\<\{ `json`: () => `unknown`; `response`: `Response`; \}\>
+
+Sends a `POST` request. Takes the URL, the request body, and an optional
+transport-specific config, and resolves to `{ response, json }`, where
+`json()` returns the already-parsed response body.
+
+###### Parameters
+
+###### url
+
+`string`
+
+###### data
+
+`unknown`
+
+###### config?
+
+`RequestConfig`
+
+###### Returns
+
+`Promise`\<\{ `json`: () => `unknown`; `response`: `Response`; \}\>
+
+***
+
+### QueryVariable
+
+A GraphQL operation variable, declared via `ZodqlBuilder.defineVariables()`.
+
+#### Properties
+
+##### schema
+
+> **schema**: `ZodType`
+
+The Zod schema used to validate/parse the value passed for this variable at request time.
+
+##### typeName
+
+> **typeName**: `string`
+
+The GraphQL type of the variable as it appears in the operation signature, e.g. `"ID!"` or `"[String!]"`.
+
+***
+
+### ZodqlClient
+
+A GraphQL client that executes compiled operations against an [HttpClient](#httpclient)
+transport.
+
+#### Type Parameters
+
+##### Response
+
+`Response` = `unknown`
+
+##### RequestConfig
+
+`RequestConfig` = `unknown`
+
+#### Methods
+
+##### request()
+
+> **request**\<`Schema`, `Variables`\>(`query`, `args`, `requestConfig?`): `Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+
+Sends a compiled query/mutation. Takes the compiled query
+(`{ queryString, variables, schema }`), an `args` object supplying a value
+for each declared variable (validated and parsed by its Zod schema before
+the request is sent), and an optional transport-specific request config;
+resolves to `{ response, parseResponse }`, where `parseResponse()` validates
+and returns the response body (see [ResponseData](#responsedata)).
+
+###### Type Parameters
+
+###### Schema
+
+`Schema` *extends* `ZodObject`\<`$ZodLooseShape`, `$strip`\>
+
+###### Variables
+
+`Variables` *extends* `Record`\<`string`, [`QueryVariable`](#queryvariable)\>
+
+###### Parameters
+
+###### query
+
+[`GraphqlQuery`](#graphqlquery)\<`Schema`, `Variables`\>
+
+###### args
+
+`MakeUndefinableFieldsOptional`\<\{ \[Key in string \| number \| symbol\]: input\<Variables\[Key\]\["schema"\]\> \}\>
+
+###### requestConfig?
+
+`RequestConfig`
+
+###### Returns
+
+`Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+
+## Type Aliases
+
+### GraphqlQuery
+
+> **GraphqlQuery**\<`Schema`, `Variables`\> = `object`
+
+The output of `ZodqlBuilder.compile()`: a ready-to-send GraphQL operation
 paired with everything needed to use it — the variables to pass to a
-<code>ZodqlClient</code>, and the schema to parse/type the response&#39;s <code>data</code> field with.</p>
-</dd>
-</dl>
+`ZodqlClient`, and the schema to parse/type the response's `data` field with.
 
-<a name="zodql"></a>
+#### Type Parameters
 
-## zodql(operation, documentSchema, [options]) ⇒ <code>ZodqlBuilder</code>
+##### Schema
+
+`Schema` *extends* `z.ZodObject`
+
+##### Variables
+
+`Variables` *extends* `Record`\<`string`, [`QueryVariable`](#queryvariable)\>
+
+#### Properties
+
+##### queryString
+
+> **queryString**: `string`
+
+The full GraphQL document source: the operation plus any fragment definitions it uses.
+
+##### schema
+
+> **schema**: `Schema`
+
+The document's root selection schema, e.g. for `z.infer<Schema>` to type the response's `data` field.
+
+##### variables
+
+> **variables**: `Variables`
+
+The variable declarations passed to `defineVariables()`, keyed by variable name (without the leading `$`).
+
+***
+
+### QueryFragment
+
+> **QueryFragment**\<`Shape`, `On`\> = `object` & \{ `name`: `string`; \} \| \{ `inline`: `true`; \}
+
+A GraphQL fragment definition, created with `zodqlFragment()` and attached to
+a field via `withFragment()`, `withRequiredFragment()`, or `withUnionFragments()`.
+
+Must be either named or inline, not both:
+- `{ name: string }` — emitted once as a standalone `fragment Name on Type { ... }`
+  definition and referenced from attachment points as `...Name`. Required for
+  fragments passed to `withUnionFragments()`.
+- `{ inline: true }` — has no `name` and no standalone definition; its fields
+  are spread directly into the parent selection as an inline fragment
+  (`... on Type { ... }`) wherever it's attached.
+
+#### Type Declaration
+
+##### inline?
+
+> `optional` **inline?**: `boolean`
+
+When `true`, the fragment is spread inline instead of emitted as a named definition.
+
+##### name?
+
+> `optional` **name?**: `string`
+
+The fragment's name, required unless `inline` is `true`.
+
+##### on
+
+> **on**: `On`
+
+The GraphQL type this fragment applies to, e.g. `... on User`.
+
+##### schema
+
+> **schema**: `z.ZodObject`\<`Shape`\>
+
+The fragment's field selection and, for parsing, its Zod schema.
+
+#### Type Parameters
+
+##### Shape
+
+`Shape` *extends* `z.ZodRawShape` = `z.ZodRawShape`
+
+##### On
+
+`On` *extends* `string` = `string`
+
+***
+
+### ResponseData
+
+> **ResponseData**\<`Schema`\> = `z.infer`\<`ReturnType`\<*typeof* `createResponseDataSchema`\>\>
+
+The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
+returned by `parseResponse()`. `data` is validated against the query's schema;
+`extensions` and `errors` are returned as-is (unvalidated) when present.
+
+#### Type Parameters
+
+##### Schema
+
+`Schema` *extends* `z.ZodObject`
+
+***
+
+### ZodqlClientBuilder
+
+> **ZodqlClientBuilder**\<`Response`, `RequestConfig`\> = (`baseClient`) => [`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
+
+A factory that wraps an [HttpClient](#httpclient) transport in a `ZodqlClient`.
+
+#### Type Parameters
+
+##### Response
+
+`Response` = `unknown`
+
+##### RequestConfig
+
+`RequestConfig` = `unknown`
+
+#### Parameters
+
+##### baseClient
+
+[`HttpClient`](#httpclient)\<`Response`, `RequestConfig`\>
+
+#### Returns
+
+[`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
+
+***
+
+### ZodqlOptions
+
+> **ZodqlOptions** = `object`
+
+Optional settings for a `zodql` operation.
+
+#### Properties
+
+##### operationName?
+
+> `optional` **operationName?**: `string`
+
+Optional name for the GraphQL operation. When provided, the compiled
+operation is emitted with this name (e.g. `query myRootQuery { ... }`),
+which is useful for server-side logging, tracing, and debugging. When
+omitted, an anonymous operation is emitted (e.g. `query { ... }`). The value
+must be a valid GraphQL `Name` (a letter or underscore followed by letters,
+digits, or underscores); otherwise `compile()` throws.
+See https://spec.graphql.org/October2021/#sec-Names
+
+## Functions
+
+### buildZodqlClient()
+
+> **buildZodqlClient**\<`Response`, `RequestConfig`\>(`baseClient`): [`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
+
+Build a Zod GraphQL client using the given HTTP client as the transport.
+
+This function creates a GraphQL client that validates and parses variables
+using their Zod schemas before sending requests, so a variable's runtime
+value can differ from its wire value (e.g. defaults, coercion, transforms).
+Any variable that parses to `undefined` is omitted from the request body
+entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
+configured `baseURL` and headers (e.g. auth) are used as-is; every request
+is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` parses the
+response body as `{ data, extensions?, errors? }`, validating `data` against the
+query's schema; `extensions` and `errors` are returned as-is, unvalidated, if present.
+GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+must check `parseResponse().errors` themselves. The returned promise rejects (without
+making a request) if a variable's value fails its Zod schema, e.g. a required variable
+that was omitted.
+
+`baseClient` only needs to satisfy [HttpClient](#httpclient): a `post` method that resolves to
+`{ response, json }`, where `json()` returns the already-parsed response body.
+
+#### Type Parameters
+
+##### Response
+
+`Response` = `unknown`
+
+##### RequestConfig
+
+`RequestConfig` = `unknown`
+
+#### Parameters
+
+##### baseClient
+
+[`HttpClient`](#httpclient)\<`Response`, `RequestConfig`\>
+
+An HTTP client to use for GraphQL requests
+
+#### Returns
+
+[`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
+
+A ZodqlClient instance that executes GraphQL operations
+
+#### Example
+
+```typescript
+import { buildZodqlClient } from 'zodql';
+
+const client = buildZodqlClient({
+  post: async (url, data) => {
+    const response = await fetch('https://api.example.com/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
+});
+
+const { parseResponse } = await client.request(query, { userId: '123' });
+const { data, errors } = parseResponse();
+```
+
+***
+
+### hasTypename()
+
+> **hasTypename**\<`T`, `Obj`\>(`obj`, `typename`): `obj is Extract<Obj, { __typename: T }>`
+
+Type guard that checks whether an object's `__typename` field matches a
+given GraphQL type name, narrowing the input union to the matching member(s).
+
+Safely handles `null` and `undefined` inputs by returning `false`, which is
+useful for nullable GraphQL union/interface fields.
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* `string`
+
+The string literal type of the expected `__typename` value.
+
+##### Obj
+
+`Obj` *extends* `object`
+
+The object (or union of objects) to narrow.
+
+#### Parameters
+
+##### obj
+
+`Obj` \| `null` \| `undefined`
+
+The object to check. May be `null` or `undefined`.
+
+##### typename
+
+`T`
+
+The expected `__typename` string to match against.
+
+#### Returns
+
+`obj is Extract<Obj, { __typename: T }>`
+
+`true` if `obj` has a `__typename` field equal to `typename`,
+  narrowing the type to the matching union member.
+
+#### Example
+
+```typescript
+type AdminUser = { __typename: "AdminUser"; adminId: string };
+type GuestUser = { __typename: "GuestUser"; guestId: string };
+type User = AdminUser | GuestUser;
+
+const user: User = getUser();
+
+if (hasTypename(user, "AdminUser")) {
+  // user is narrowed to AdminUser
+  console.log(user.adminId);
+}
+
+// Safe with nullable values
+const maybeUser: User | null = getNullableUser();
+if (hasTypename(maybeUser, "GuestUser")) {
+  console.log(maybeUser.guestId);
+}
+```
+
+***
+
+### zodql()
+
+> **zodql**\<`Schema`\>(`operation`, `documentSchema`, `options?`): `ZodqlBuilder`\<`Schema`, \{ \}\>
+
 Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas.
 
 This function initializes a builder that can be used to define variables and compile
@@ -187,16 +522,41 @@ with the added variables rather than mutating this one, so it's safe to chain
 or to branch off a shared base builder. Call `compile()` last to produce the
 final query string, variables, and schema.
 
-**Kind**: global function  
-**Returns**: <code>ZodqlBuilder</code> - A ZodqlBuilder instance for chaining operations  
+#### Type Parameters
 
-| Param | Type | Description |
-| --- | --- | --- |
-| operation | <code>&quot;query&quot;</code> \| <code>&quot;mutation&quot;</code> | The GraphQL operation type, either "query" or "mutation" |
-| documentSchema | <code>z.ZodObject</code> | Zod schema (built from plain fields and/or `zodqlField()`   fields) representing the GraphQL document's root selection set |
-| [options] | [<code>ZodqlOptions</code>](#ZodqlOptions) | Optional settings for the operation. See [ZodqlOptions](#ZodqlOptions) for the available fields. |
+##### Schema
 
-**Example**  
+`Schema` *extends* `ZodObject`\<`$ZodLooseShape`, `$strip`\>
+
+#### Parameters
+
+##### operation
+
+`Operation`
+
+The GraphQL operation type, either "query" or "mutation"
+
+##### documentSchema
+
+`Schema`
+
+Zod schema (built from plain fields and/or `zodqlField()`
+  fields) representing the GraphQL document's root selection set
+
+##### options?
+
+[`ZodqlOptions`](#zodqloptions) = `{}`
+
+Optional settings for the operation. See [ZodqlOptions](#zodqloptions) for the available fields.
+
+#### Returns
+
+`ZodqlBuilder`\<`Schema`, \{ \}\>
+
+A ZodqlBuilder instance for chaining operations
+
+#### Example
+
 ```typescript
 import { zodql, zodqlField } from 'zodql';
 import { z } from 'zod';
@@ -214,54 +574,13 @@ const query = zodql('query', userSchema, { operationName: 'GetUser' })
   .defineVariables({ userId: { typeName: 'ID!', schema: z.string() } })
   .compile();
 ```
-<a name="zodqlFragment"></a>
 
-## zodqlFragment(fragmentParam) ⇒ [<code>QueryFragment</code>](#QueryFragment)
-Define a GraphQL fragment from a Zod schema.
+***
 
-Fragments allow you to reuse common field selections across multiple queries.
-This function validates and returns a fragment definition that can be used with
-zodqlField's withFragment(), withRequiredFragment(), or withUnionFragments() methods.
+### zodqlField()
 
-A fragment must either be given a `name` (emitted as a standalone named
-fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
-`inline: true` (its fields are spread directly into the parent selection
-instead, with no separate fragment definition). Union fragments (used with
-`withUnionFragments()`) must use `name`, since inline fragments have nothing
-for the `...FragmentName` reference to resolve to. This is enforced at the
-type level; at runtime, the fragment's schema shape is checked and rejected
-if empty, since an empty selection set is not valid GraphQL.
+> **zodqlField**(): `ZodqlFieldBuilder`
 
-**Kind**: global function  
-**Returns**: [<code>QueryFragment</code>](#QueryFragment) - The validated fragment definition for use in queries  
-**Throws**:
-
-- <code>Error</code> If the fragment's schema shape is an empty object
-
-
-| Param | Type | Description |
-| --- | --- | --- |
-| fragmentParam | [<code>QueryFragment</code>](#QueryFragment) | Fragment definition containing name, on (type), schema, and inline flag |
-
-**Example**  
-```typescript
-import { zodqlFragment } from 'zodql';
-import { z } from 'zod';
-
-const userFragment = zodqlFragment({
-  name: 'UserFields',
-  on: 'User',
-  schema: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-  }),
-  inline: false,
-});
-```
-<a name="zodqlField"></a>
-
-## zodqlField() ⇒ <code>ZodqlFieldBuilder</code>
 Create a ZodqlFieldBuilder for building GraphQL fields with arguments, fragments, and aliases.
 
 This builder provides a fluent interface to configure GraphQL fields with:
@@ -274,9 +593,14 @@ Each `with*` method returns a new builder rather than mutating the current
 one, so calls can be chained freely. Call `toSchema()` last to produce the
 finished schema for use as a field's value in a document schema.
 
-**Kind**: global function  
-**Returns**: <code>ZodqlFieldBuilder</code> - A new ZodqlFieldBuilder instance for configuring field properties  
-**Example**  
+#### Returns
+
+`ZodqlFieldBuilder`
+
+A new ZodqlFieldBuilder instance for configuring field properties
+
+#### Example
+
 ```typescript
 import { zodqlField } from 'zodql';
 import { z } from 'zod';
@@ -296,225 +620,73 @@ const userField = zodqlField()
     name: z.string(),
   }));
 ```
-<a name="buildZodqlClient"></a>
 
-## buildZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code>
-Build a Zod GraphQL client using the given HTTP client as the transport.
+***
 
-This function creates a GraphQL client that validates and parses variables
-using their Zod schemas before sending requests, so a variable's runtime
-value can differ from its wire value (e.g. defaults, coercion, transforms).
-Any variable that parses to `undefined` is omitted from the request body
-entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
-configured `baseURL` and headers (e.g. auth) are used as-is; every request
-is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` parses the
-response body as `{ data, extensions?, errors? }`, validating `data` against the
-query's schema; `extensions` and `errors` are returned as-is, unvalidated, if present.
-GraphQL errors returned in a 200 response body are therefore not thrown — the caller
-must check `parseResponse().errors` themselves. The returned promise rejects (without
-making a request) if a variable's value fails its Zod schema, e.g. a required variable
-that was omitted.
+### zodqlFragment()
 
-`baseClient` only needs to satisfy [HttpClient](#HttpClient): a `post` method that resolves to
-`{ response, json }`, where `json()` returns the already-parsed response body.
+> **zodqlFragment**\<`Shape`, `On`\>(`fragmentParam`): [`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
 
-**Kind**: global function  
-**Returns**: <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
+Define a GraphQL fragment from a Zod schema.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| baseClient | <code>HttpClient.&lt;Response, RequestConfig&gt;</code> | An HTTP client to use for GraphQL requests |
+Fragments allow you to reuse common field selections across multiple queries.
+This function validates and returns a fragment definition that can be used with
+zodqlField's withFragment(), withRequiredFragment(), or withUnionFragments() methods.
 
-**Example**  
+A fragment must either be given a `name` (emitted as a standalone named
+fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
+`inline: true` (its fields are spread directly into the parent selection
+instead, with no separate fragment definition). Union fragments (used with
+`withUnionFragments()`) must use `name`, since inline fragments have nothing
+for the `...FragmentName` reference to resolve to. This is enforced at the
+type level; at runtime, the fragment's schema shape is checked and rejected
+if empty, since an empty selection set is not valid GraphQL.
+
+#### Type Parameters
+
+##### Shape
+
+`Shape` *extends* `Readonly`\<\{\[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\>
+
+##### On
+
+`On` *extends* `string`
+
+#### Parameters
+
+##### fragmentParam
+
+`object` *extends* `NoInfer`\<`Shape`\> ? `"Error: Fragment shape can not be an empty object"` : [`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
+
+Fragment definition containing name, on (type), schema, and inline flag
+
+#### Returns
+
+[`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
+
+The validated fragment definition for use in queries
+
+#### Throws
+
+If the fragment's schema shape is an empty object
+
+#### Example
+
 ```typescript
-import { buildZodqlClient } from 'zodql';
+import { zodqlFragment } from 'zodql';
+import { z } from 'zod';
 
-const client = buildZodqlClient({
-  post: async (url, data) => {
-    const response = await fetch('https://api.example.com/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
-      body: JSON.stringify(data),
-    });
-    const body = await response.json();
-    return { response, json: () => body };
-  },
+const userFragment = zodqlFragment({
+  name: 'UserFields',
+  on: 'User',
+  schema: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+  }),
+  inline: false,
 });
-
-const { parseResponse } = await client.request(query, { userId: '123' });
-const { data, errors } = parseResponse();
 ```
-<a name="hasTypename"></a>
-
-## hasTypename(obj, typename) ⇒
-Type guard that checks whether an object's `__typename` field matches a
-given GraphQL type name, narrowing the input union to the matching member(s).
-
-Safely handles `null` and `undefined` inputs by returning `false`, which is
-useful for nullable GraphQL union/interface fields.
-
-**Kind**: global function  
-**Returns**: `true` if `obj` has a `__typename` field equal to `typename`,
-  narrowing the type to the matching union member.  
-**Typeparam**: T - The string literal type of the expected `__typename` value.  
-**Typeparam**: Obj - The object (or union of objects) to narrow.  
-
-| Param | Description |
-| --- | --- |
-| obj | The object to check. May be `null` or `undefined`. |
-| typename | The expected `__typename` string to match against. |
-
-**Example**  
-```typescript
-type AdminUser = { __typename: "AdminUser"; adminId: string };
-type GuestUser = { __typename: "GuestUser"; guestId: string };
-type User = AdminUser | GuestUser;
-
-const user: User = getUser();
-
-if (hasTypename(user, "AdminUser")) {
-  // user is narrowed to AdminUser
-  console.log(user.adminId);
-}
-
-// Safe with nullable values
-const maybeUser: User | null = getNullableUser();
-if (hasTypename(maybeUser, "GuestUser")) {
-  console.log(maybeUser.guestId);
-}
-```
-<a name="ZodqlOptions"></a>
-
-## ZodqlOptions : <code>Object</code>
-Optional settings for a `zodql` operation.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| [operationName] | <code>string</code> | Optional name for the GraphQL operation.   When provided, the compiled operation is emitted with this name   (e.g. `query myRootQuery { ... }`), which is useful for server-side logging,   tracing, and debugging. When omitted, an anonymous operation is emitted   (e.g. `query { ... }`). The value must be a valid GraphQL `Name` (a letter   or underscore followed by letters, digits, or underscores); otherwise   `compile()` throws. See https://spec.graphql.org/October2021/#sec-Names |
-
-<a name="HttpClient"></a>
-
-## HttpClient : <code>Object</code>
-An HTTP client exposing a Promise-based `post` method, used as the transport
-for a `ZodqlClient`, e.g. a thin wrapper around `fetch`.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| post | <code>function</code> | Sends a `POST` request. Takes the URL, the request   body, and an optional transport-specific config, and resolves to   `{ response, json }`, where `json()` returns the already-parsed response body. |
-
-<a name="ZodqlClient"></a>
-
-## ZodqlClient : <code>Object</code>
-A GraphQL client that executes compiled operations against an [HttpClient](#HttpClient)
-transport.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| request | <code>function</code> | Sends a compiled query/mutation. Takes the compiled   query (`{ queryString, variables, schema }`), an `args` object supplying a value   for each declared variable (validated and parsed by its Zod schema before the   request is sent), and an optional transport-specific request config; resolves to   `{ response, parseResponse }`, where `parseResponse()` validates and returns the   response body (see [ResponseData](#ResponseData)). |
-
-<a name="ZodqlClientBuilder"></a>
-
-## ZodqlClientBuilder ⇒ [<code>ZodqlClient</code>](#ZodqlClient)
-A factory that wraps an [HttpClient](#HttpClient) transport in a `ZodqlClient`.
-
-**Kind**: global typedef  
-**Returns**: [<code>ZodqlClient</code>](#ZodqlClient) - A client that executes GraphQL operations over that transport.  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| baseClient | [<code>HttpClient</code>](#HttpClient) | The HTTP client to use as the transport. |
-
-<a name="ResponseData"></a>
-
-## ResponseData : <code>Object</code>
-The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
-returned by `parseResponse()`. `data` is validated against the query's schema;
-`extensions` and `errors` are returned as-is (unvalidated) when present.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| data | <code>Object</code> | The response payload, typed and validated by the query's schema. |
-| [extensions] | <code>Object</code> | Server-provided extensions, if any; returned unvalidated. |
-| [errors] | <code>Object</code> | GraphQL errors returned in the response body, if any; returned unvalidated. |
-
-<a name="QueryFragment"></a>
-
-## QueryFragment : <code>Object</code>
-A GraphQL fragment definition, created with `zodqlFragment()` and attached to
-a field via `withFragment()`, `withRequiredFragment()`, or `withUnionFragments()`.
-
-Must be either named or inline, not both: a named fragment (`name` set) is
-emitted once as a standalone `fragment Name on Type { ... }` and referenced as
-`...Name` (required for `withUnionFragments()`), while an inline fragment
-(`inline: true`, no `name`) has its fields spread directly into the parent
-selection as `... on Type { ... }` wherever it's attached.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| on | <code>string</code> | The GraphQL type this fragment applies to, e.g. `... on User`. |
-| schema | <code>z.ZodObject</code> | The fragment's field selection and, for parsing, its Zod schema. |
-| [inline] | <code>boolean</code> | When `true`, the fragment is spread inline instead of emitted as a named definition. |
-| [name] | <code>string</code> | The fragment's name, required unless `inline` is `true`. |
-
-<a name="QueryVariable"></a>
-
-## QueryVariable : <code>Object</code>
-A GraphQL operation variable, declared via `ZodqlBuilder.defineVariables()`.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| typeName | <code>string</code> | The GraphQL type of the variable as it appears in the operation signature, e.g. `"ID!"` or `"[String!]"`. |
-| schema | <code>z.ZodType</code> | The Zod schema used to validate/parse the value passed for this variable at request time. |
-
-<a name="GraphqlQuerySegment"></a>
-
-## GraphqlQuerySegment : <code>Object</code>
-A partial GraphQL query/mutation selection: the lines of one document segment
-plus the fragments it uses. Currently unused by the builder itself (queries
-are assembled and emitted as a whole), but available for callers composing
-query text from smaller pieces.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| queryLines | <code>Array.&lt;string&gt;</code> | The selection's GraphQL source lines, one array entry per line, unindented relative to the document root. |
-| usedFragments | [<code>Array.&lt;QueryFragment&gt;</code>](#QueryFragment) | The named fragments referenced by `queryLines`, so their definitions can be appended alongside it. |
-
-<a name="GraphqlQuery"></a>
-
-## GraphqlQuery : <code>Object</code>
-The output of `ZodqlBuilder.compile()`: a ready-to-send GraphQL operation
-paired with everything needed to use it — the variables to pass to a
-`ZodqlClient`, and the schema to parse/type the response's `data` field with.
-
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| queryString | <code>string</code> | The full GraphQL document source: the operation plus any fragment definitions it uses. |
-| variables | <code>Object.&lt;string, QueryVariable&gt;</code> | The variable declarations passed to `defineVariables()`, keyed by variable name (without the leading `$`). |
-| schema | <code>z.ZodObject</code> | The document's root selection schema, e.g. for `z.infer<Schema>` to type the response's `data` field. |
 
 ## Advanced Usage
 

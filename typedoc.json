@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "disableSources": true,
+  "excludeInternal": true,
+  "hideBreadcrumbs": true,
+  "hidePageHeader": true,
+  "hidePageTitle": true,
+  "outputFileStrategy": "modules",
+  "intentionallyNotExported": [
+    "ZodqlBuilder",
+    "ZodqlFieldBuilder",
+    "Operation",
+    "MakeUndefinableFieldsOptional",
+    "createResponseDataSchema"
+  ]
+}
