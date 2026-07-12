@@ -11,7 +11,7 @@ export function generateReadmeContent(rootDir) {
 
   console.log("Generating API documentation...");
   const apiDocs = execSync(
-    "npx --no-install jsdoc2md --files dist/index.js dist/ZodqlBuilder.js dist/ZodqlFieldBuilder.js dist/client.js dist/utils/hasTypename.js",
+    "npx --no-install jsdoc2md --files dist/index.js dist/ZodqlBuilder.js dist/ZodqlFieldBuilder.js dist/client.js dist/utils/hasTypename.js dist/types.js",
     {
       cwd: rootDir,
       encoding: "utf-8",

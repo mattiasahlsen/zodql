@@ -27,6 +27,34 @@ export type ZodqlClientBuildOptions = {
 export type AxiosZodqlClientBuilder = (baseClient: AxiosInstance) => ZodqlClient<AxiosResponse, AxiosRequestConfig>;
 
 /**
+ * A GraphQL client that executes compiled operations against a transport.
+ *
+ * @typedef {Object} ZodqlClient
+ * @property {function} request - Sends a compiled query/mutation. Takes the compiled
+ *   query (`{ queryString, variables }`), an `args` object supplying a value for each
+ *   declared variable (validated and parsed by its Zod schema before the request is
+ *   sent), and an optional transport-specific request config; resolves with the
+ *   transport's response.
+ */
+
+/**
+ * Connection settings for a `ZodqlClient`.
+ *
+ * @typedef {Object} ZodqlClientBuildOptions
+ * @property {string} url - The GraphQL endpoint URL to send operations to.
+ * @property {Object.<string, string>} [headers] - Additional HTTP headers to include on every request.
+ * @property {string} token - Bearer token sent for authentication.
+ */
+
+/**
+ * A factory that wraps a configured Axios instance in a `ZodqlClient`.
+ *
+ * @typedef {function} AxiosZodqlClientBuilder
+ * @param {AxiosInstance} baseClient - A configured Axios instance used as the HTTP transport.
+ * @returns {ZodqlClient} A client that executes GraphQL operations over that instance.
+ */
+
+/**
  * Build a Zod GraphQL client using Axios as the HTTP transport.
  *
  * This function creates a GraphQL client that validates and parses variables
