@@ -8,24 +8,25 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Axios integration** - Built-in support for Axios HTTP client
+- 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
 
 ## Installation
 
 ```bash
-npm install zodql zod axios
+npm install zodql zod
 ```
 
 ```bash
-pnpm add zodql zod axios
+pnpm add zodql zod
 ```
 
 ## Quick Start
 
+The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
+
 ```typescript
-import { zodql, buildAxiosZodqlClient } from "zodql";
+import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
-import axios from "axios";
 
 // Define your schema
 const userSchema = z.object({
@@ -42,15 +43,21 @@ const query = zodql("query", userSchema)
   .compile();
 
 // Create a client
-const axiosInstance = axios.create({
-  baseURL: "https://api.example.com/graphql",
-  headers: { Authorization: "Bearer token" },
+const client = buildZodqlClient({
+  post: async (url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
-
 // Execute the query
-const response = await client.request(query, { userId: "123" });
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data } = parseResponse();
 ```
 
 ## API Documentation
@@ -138,29 +145,23 @@ if empty, since an empty selection set is not valid GraphQL.</p>
 one, so calls can be chained freely. Call <code>toSchema()</code> last to produce the
 finished schema for use as a field&#39;s value in a document schema.</p>
 </dd>
-<dt><a href="#buildAxiosZodqlClient">buildAxiosZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code></dt>
-<dd><p>Build a Zod GraphQL client using Axios as the HTTP transport.</p>
+<dt><a href="#buildZodqlClient">buildZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code></dt>
+<dd><p>Build a Zod GraphQL client using the given HTTP client as the transport.</p>
 <p>This function creates a GraphQL client that validates and parses variables
 using their Zod schemas before sending requests, so a variable&#39;s runtime
 value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to <code>undefined</code> is omitted from the request body
 entirely, rather than being sent as <code>undefined</code> or <code>null</code>. <code>baseClient</code>&#39;s
 configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every request
-is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. The client does not
-inspect the response — GraphQL errors returned in a 200 response body are
-not thrown and must be checked by the caller (see <a href="#createResponseSchema">createResponseSchema</a>).
-The returned promise rejects (without making a request) if a variable&#39;s
-value fails its Zod schema, e.g. a required variable that was omitted.</p>
-</dd>
-<dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
-<dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
-as returned by a spec-compliant GraphQL server.</p>
-<p><code>data</code> is required on the resulting schema and validated with <code>dataSchema</code>.
-<code>extensions</code> and <code>errors</code> are always optional — they may be absent or
-<code>undefined</code> regardless of whether <code>extensionSchema</code>/<code>errorsSchema</code> were
-provided — but are validated against those schemas when present. When
-<code>extensionSchema</code>/<code>errorsSchema</code> aren&#39;t provided, any loose object /
-any array is accepted, respectively, i.e. present but unvalidated.</p>
+is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> parses the
+response body as <code>{ data, extensions?, errors? }</code>, validating <code>data</code> against the
+query&#39;s schema; <code>extensions</code> and <code>errors</code> are returned as-is, unvalidated, if present.
+GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+must check <code>parseResponse().errors</code> themselves. The returned promise rejects (without
+making a request) if a variable&#39;s value fails its Zod schema, e.g. a required variable
+that was omitted.</p>
+<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method that resolves to
+<code>{ response, json }</code>, where <code>json()</code> returns the already-parsed response body.</p>
 </dd>
 <dt><a href="#hasTypename">hasTypename(obj, typename)</a> ⇒</dt>
 <dd><p>Type guard that checks whether an object&#39;s <code>__typename</code> field matches a
@@ -359,10 +360,10 @@ const userField = zodqlField()
     name: z.string(),
   }));
 ```
-<a name="buildAxiosZodqlClient"></a>
+<a name="buildZodqlClient"></a>
 
-## buildAxiosZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code>
-Build a Zod GraphQL client using Axios as the HTTP transport.
+## buildZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code>
+Build a Zod GraphQL client using the given HTTP client as the transport.
 
 This function creates a GraphQL client that validates and parses variables
 using their Zod schemas before sending requests, so a variable's runtime
@@ -370,72 +371,42 @@ value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to `undefined` is omitted from the request body
 entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
 configured `baseURL` and headers (e.g. auth) are used as-is; every request
-is a `POST` with a `{ query, variables }` JSON body. The client does not
-inspect the response — GraphQL errors returned in a 200 response body are
-not thrown and must be checked by the caller (see [createResponseSchema](#createResponseSchema)).
-The returned promise rejects (without making a request) if a variable's
-value fails its Zod schema, e.g. a required variable that was omitted.
+is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` parses the
+response body as `{ data, extensions?, errors? }`, validating `data` against the
+query's schema; `extensions` and `errors` are returned as-is, unvalidated, if present.
+GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+must check `parseResponse().errors` themselves. The returned promise rejects (without
+making a request) if a variable's value fails its Zod schema, e.g. a required variable
+that was omitted.
+
+`baseClient` only needs to satisfy [HttpClient](HttpClient): a `post` method that resolves to
+`{ response, json }`, where `json()` returns the already-parsed response body.
 
 **Kind**: global function  
-**Returns**: <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
+**Returns**: <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
 
 | Param | Type | Description |
 | --- | --- | --- |
-| baseClient | <code>AxiosInstance</code> | A configured Axios instance to use for GraphQL requests |
+| baseClient | <code>HttpClient.&lt;Response, RequestConfig&gt;</code> | An HTTP client to use for GraphQL requests |
 
 **Example**  
 ```typescript
-import axios from 'axios';
-import { buildAxiosZodqlClient } from 'zodql';
+import { buildZodqlClient } from 'zodql';
 
-const axiosInstance = axios.create({
-  baseURL: 'https://api.example.com/graphql',
-  headers: {
-    'Authorization': 'Bearer token123',
+const client = buildZodqlClient({
+  post: async (url, data) => {
+    const response = await fetch('https://api.example.com/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
   },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
-
-const response = await client.request(query, { userId: '123' });
-```
-<a name="createResponseSchema"></a>
-
-## createResponseSchema(dataSchema, options) ⇒
-Creates a Zod schema for a GraphQL response, i.e. `{ data, extensions?, errors? }`
-as returned by a spec-compliant GraphQL server.
-
-`data` is required on the resulting schema and validated with `dataSchema`.
-`extensions` and `errors` are always optional — they may be absent or
-`undefined` regardless of whether `extensionSchema`/`errorsSchema` were
-provided — but are validated against those schemas when present. When
-`extensionSchema`/`errorsSchema` aren't provided, any loose object /
-any array is accepted, respectively, i.e. present but unvalidated.
-
-**Kind**: global function  
-**Returns**: A Zod object schema representing the GraphQL response structure.  
-
-| Param | Description |
-| --- | --- |
-| dataSchema | A Zod schema for the `data` field. |
-| options | Configuration options. |
-| options.extensionSchema | (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema. |
-| options.errorsSchema | (Optional) A Zod schema for the `errors` field. Defaults to an array of any type. |
-
-**Example**  
-```ts
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-const responseSchema = createResponseSchema(userSchema, {
- extensionSchema: z.object({ traceId: z.string() }),
-});
-
-const parsedResponse = responseSchema.parse({
-  data: { id: "1", name: "Alice" },
-  extensions: { traceId: "abc-123" },
-});
+const { parseResponse } = await client.request(query, { userId: '123' });
+const { data, errors } = parseResponse();
 ```
 <a name="hasTypename"></a>
 
@@ -534,7 +505,7 @@ const mutation = zodql("mutation", createUserSchema)
   .compile();
 
 // Execute with complex input
-const response = await client.request(mutation, {
+const { parseResponse } = await client.request(mutation, {
   input: {
     name: "John Doe",
     email: "john@example.com",
@@ -547,6 +518,7 @@ const response = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
+const { data } = parseResponse();
 ```
 
 ### Using Fragments
@@ -701,29 +673,18 @@ const schema = z.object({
 
 ### Response Validation
 
-Validate GraphQL responses with custom error handling:
+`parseResponse()` validates the response's `data` field against the query's schema and
+returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
+— check them yourself:
 
 ```typescript
-import { createResponseSchema } from "zodql";
-import { z } from "zod";
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data, errors } = parseResponse();
 
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-
-const responseSchema = createResponseSchema(userSchema, {
-  extensionSchema: z.object({ traceId: z.string() }),
-  errorsSchema: z
-    .object({
-      message: z.string(),
-      locations: z.array(z.object({ line: z.number(), column: z.number() })),
-    })
-    .array(),
-});
-
-// Parse and validate the response
-const validatedResponse = responseSchema.parse(apiResponse);
+if (errors) {
+  // handle GraphQL errors returned alongside `data`
+}
 ```
 
 ## TypeScript Support
