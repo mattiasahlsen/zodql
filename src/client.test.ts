@@ -3,6 +3,12 @@ import { buildZodqlClient, createResponseSchema, type HttpClient } from "./clien
 import { zodql } from "./ZodqlBuilder.js";
 import { zodqlField } from "./ZodqlFieldBuilder.js";
 import { vi } from "vitest";
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
 describe("createResponseSchema", () => {
   const dataSchema = z.object({
@@ -304,5 +310,90 @@ describe("buildZodqlClient", () => {
 
       expect(() => parseResponse()).toThrow();
     });
+  });
+});
+
+describe("axios integration", () => {
+  const buildQuery = <VariableSchema extends z.ZodType>(variableSchema: VariableSchema) =>
+    zodql(
+      "query",
+      z.object({
+        myQuery: zodqlField()
+          .withArguments({ id: "$id" })
+          .toSchema(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+            })
+          ),
+      })
+    )
+      .defineVariables({
+        id: {
+          schema: variableSchema,
+          typeName: "String",
+        },
+      })
+      .compile();
+
+  const buildAxiosHttpClient = (
+    axiosInstance: AxiosInstance
+  ): HttpClient<{ json: () => unknown }, AxiosRequestConfig> => ({
+    post: async (url, data, config) => {
+      const response = await axiosInstance.post(url, data, config);
+      return { json: () => response.data };
+    },
+  });
+
+  /**
+   * Mocks the next request through `axiosInstance` with `responseData` using a request/response
+   * interceptor pair, so no real HTTP call is ever attempted: the request interceptor rejects
+   * before axios's adapter can open a connection, and the response interceptor turns that
+   * rejection into a synthetic successful response.
+   */
+  const mockNextAxiosResponse = (axiosInstance: AxiosInstance, responseData: unknown) => {
+    const requestInterceptorId = axiosInstance.interceptors.request.use((config) =>
+      Promise.reject({ __mockedResponseData: responseData, config })
+    );
+    const responseInterceptorId = axiosInstance.interceptors.response.use(
+      (response) => response,
+      (error: { __mockedResponseData?: unknown; config?: InternalAxiosRequestConfig }) => {
+        if (error && "__mockedResponseData" in error) {
+          return Promise.resolve({
+            data: error.__mockedResponseData,
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: error.config,
+          } as AxiosResponse);
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axiosInstance.interceptors.request.eject(requestInterceptorId);
+      axiosInstance.interceptors.response.eject(responseInterceptorId);
+    };
+  };
+
+  it("posts the compiled query string and parsed variables through axios", async () => {
+    const axiosInstance = axios.create({ baseURL: "https://api.example.test/graphql" });
+    const unmock = mockNextAxiosResponse(axiosInstance, { myQuery: { id: "1", name: "Alice" } });
+    const client = buildZodqlClient(buildAxiosHttpClient(axiosInstance));
+    const query = buildQuery(z.string());
+
+    const { parseResponse } = await client.request(query, { id: "123" });
+
+    expect(parseResponse()).toEqual({ myQuery: { id: "1", name: "Alice" } });
+    unmock();
+  });
+
+  it("rejects instead of making a real HTTP call when the request isn't mocked", async () => {
+    const axiosInstance = axios.create({ baseURL: "https://api.example.test/graphql" });
+    const client = buildZodqlClient(buildAxiosHttpClient(axiosInstance));
+    const query = buildQuery(z.string());
+
+    await expect(client.request(query, { id: "123" })).rejects.toThrow("External HTTP calls are disabled in tests");
   });
 });
