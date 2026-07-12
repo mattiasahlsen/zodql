@@ -5,6 +5,7 @@ import { zodqlField } from "./ZodqlFieldBuilder.js";
 import { vi } from "vitest";
 import type { AxiosResponse } from "axios";
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
+import fetch, { type Response as FetchResponse } from "node-fetch";
 import nock from "nock";
 
 describe("createResponseSchema", () => {
@@ -365,6 +366,64 @@ describe("axios integration", () => {
   it("rejects instead of making a real HTTP call when the request isn't mocked", async () => {
     const axiosInstance = axios.create({ baseURL: "https://api.example.test/graphql" });
     const client = buildZodqlClient(buildAxiosHttpClient(axiosInstance));
+    const query = buildQuery(z.string());
+
+    await expect(client.request(query, { id: "123" })).rejects.toThrow(/disallowed net connect/i);
+  });
+});
+
+describe("fetch integration", () => {
+  const baseUrl = "https://api.example.test/graphql";
+
+  const buildQuery = <VariableSchema extends z.ZodType>(variableSchema: VariableSchema) =>
+    zodql(
+      "query",
+      z.object({
+        myQuery: zodqlField()
+          .withArguments({ id: "$id" })
+          .toSchema(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+            })
+          ),
+      })
+    )
+      .defineVariables({
+        id: {
+          schema: variableSchema,
+          typeName: "String",
+        },
+      })
+      .compile();
+
+  const buildFetchHttpClient = (): HttpClient<FetchResponse> => ({
+    post: async (url, data) => {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const parsedBody = await response.json();
+      return { response, json: () => parsedBody };
+    },
+  });
+
+  it("posts the compiled query string and parsed variables through fetch", async () => {
+    const query = buildQuery(z.string());
+    const scope = nock("https://api.example.test")
+      .post("/graphql", { query: query.queryString, variables: { id: "123" } })
+      .reply(200, { myQuery: { id: "1", name: "Alice" } });
+
+    const client = buildZodqlClient(buildFetchHttpClient());
+    const { parseResponse } = await client.request(query, { id: "123" });
+
+    expect(parseResponse()).toEqual({ myQuery: { id: "1", name: "Alice" } });
+    expect(scope.isDone()).toBe(true);
+  });
+
+  it("rejects instead of making a real HTTP call when the request isn't mocked", async () => {
+    const client = buildZodqlClient(buildFetchHttpClient());
     const query = buildQuery(z.string());
 
     await expect(client.request(query, { id: "123" })).rejects.toThrow(/disallowed net connect/i);
