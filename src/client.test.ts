@@ -283,7 +283,7 @@ describe("buildZodqlClient", () => {
     it("parses the response's data field against the query's schema", async () => {
       const query = buildQuery(z.string());
       const fakeResponse = {
-        json: () => ({ data: { myQuery: { id: "1", name: "Alice" } } }),
+        json: () => ({ myQuery: { id: "1", name: "Alice" } }),
       };
       mockedClient.post.mockResolvedValueOnce(fakeResponse);
 

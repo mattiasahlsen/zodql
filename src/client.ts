@@ -120,7 +120,7 @@ export class ZodqlClientImplementation<
 
     return {
       response,
-      parseResponse: () => schema.parse((response.json() as { data: unknown }).data),
+      parseResponse: () => schema.parse(response.json()),
     };
   }
 }
