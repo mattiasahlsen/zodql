@@ -8,7 +8,7 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Bring your own HTTP client** - Works with Axios or any client exposing a compatible `post` method, with no hard dependency on Axios itself
+- 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
 
 ## Installation
 
@@ -22,16 +22,11 @@ pnpm add zodql zod
 
 ## Quick Start
 
-The example below uses Axios as the HTTP transport, but any client exposing a compatible `post(url, data, config)` method works — install Axios separately if you want to use it:
-
-```bash
-npm install axios
-```
+The example below uses the global `fetch`, but any client whose `post` method resolves to a response with a `.json()` method works:
 
 ```typescript
 import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
-import axios from "axios";
 
 // Define your schema
 const userSchema = z.object({
@@ -48,15 +43,18 @@ const query = zodql("query", userSchema)
   .compile();
 
 // Create a client
-const axiosInstance = axios.create({
-  baseURL: "https://api.example.com/graphql",
-  headers: { Authorization: "Bearer token" },
+const client = buildZodqlClient({
+  post: (url, data) =>
+    fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+      body: JSON.stringify(data),
+    }),
 });
 
-const client = buildZodqlClient(axiosInstance);
-
 // Execute the query
-const response = await client.request(query, { userId: "123" });
+const { parseResponse } = await client.request(query, { userId: "123" });
+const data = parseResponse();
 ```
 
 ## API Documentation
@@ -152,13 +150,14 @@ value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to <code>undefined</code> is omitted from the request body
 entirely, rather than being sent as <code>undefined</code> or <code>null</code>. <code>baseClient</code>&#39;s
 configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every request
-is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. The client does not
-inspect the response — GraphQL errors returned in a 200 response body are
-not thrown and must be checked by the caller (see <a href="#createResponseSchema">createResponseSchema</a>).
+is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> only
+parses and returns the response&#39;s <code>data</code> field against the query&#39;s schema —
+GraphQL errors returned in a 200 response body are not thrown and must be
+checked by the caller by reading <code>response.json()</code> directly (see <a href="#createResponseSchema">createResponseSchema</a>).
 The returned promise rejects (without making a request) if a variable&#39;s
 value fails its Zod schema, e.g. a required variable that was omitted.</p>
-<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a> (a <code>post</code> method), so a
-real Axios instance works without adding <code>axios</code> as a dependency of this library.</p>
+<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method whose
+resolved response exposes a <code>.json()</code> method to read the parsed response body.</p>
 </dd>
 <dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
 <dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
@@ -378,37 +377,38 @@ value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to `undefined` is omitted from the request body
 entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
 configured `baseURL` and headers (e.g. auth) are used as-is; every request
-is a `POST` with a `{ query, variables }` JSON body. The client does not
-inspect the response — GraphQL errors returned in a 200 response body are
-not thrown and must be checked by the caller (see [createResponseSchema](#createResponseSchema)).
+is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
+parses and returns the response's `data` field against the query's schema —
+GraphQL errors returned in a 200 response body are not thrown and must be
+checked by the caller by reading `response.json()` directly (see [createResponseSchema](#createResponseSchema)).
 The returned promise rejects (without making a request) if a variable's
 value fails its Zod schema, e.g. a required variable that was omitted.
 
-`baseClient` only needs to satisfy [HttpClient](HttpClient) (a `post` method), so a
-real Axios instance works without adding `axios` as a dependency of this library.
+`baseClient` only needs to satisfy [HttpClient](HttpClient): a `post` method whose
+resolved response exposes a `.json()` method to read the parsed response body.
 
 **Kind**: global function  
 **Returns**: <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
 
 | Param | Type | Description |
 | --- | --- | --- |
-| baseClient | <code>HttpClient.&lt;Response, RequestConfig&gt;</code> | An HTTP client to use for GraphQL requests, e.g. a configured Axios instance |
+| baseClient | <code>HttpClient.&lt;Response, RequestConfig&gt;</code> | An HTTP client to use for GraphQL requests |
 
 **Example**  
 ```typescript
-import axios from 'axios';
 import { buildZodqlClient } from 'zodql';
 
-const axiosInstance = axios.create({
-  baseURL: 'https://api.example.com/graphql',
-  headers: {
-    'Authorization': 'Bearer token123',
-  },
+const client = buildZodqlClient({
+  post: (url, data) =>
+    fetch('https://api.example.com/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
+      body: JSON.stringify(data),
+    }),
 });
 
-const client = buildZodqlClient(axiosInstance);
-
-const response = await client.request(query, { userId: '123' });
+const { parseResponse } = await client.request(query, { userId: '123' });
+const data = parseResponse();
 ```
 <a name="createResponseSchema"></a>
 
@@ -545,7 +545,7 @@ const mutation = zodql("mutation", createUserSchema)
   .compile();
 
 // Execute with complex input
-const response = await client.request(mutation, {
+const { parseResponse } = await client.request(mutation, {
   input: {
     name: "John Doe",
     email: "john@example.com",
@@ -558,6 +558,7 @@ const response = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
+const data = parseResponse();
 ```
 
 ### Using Fragments

@@ -278,4 +278,31 @@ describe("buildZodqlClient", () => {
       requestConfig
     );
   });
+
+  describe("parseResponse", () => {
+    it("parses the response's data field against the query's schema", async () => {
+      const query = buildQuery(z.string());
+      const fakeResponse = {
+        json: () => ({ data: { myQuery: { id: "1", name: "Alice" } } }),
+      };
+      mockedClient.post.mockResolvedValueOnce(fakeResponse);
+
+      const { response, parseResponse } = await client.request(query, { id: "123" });
+
+      expect(response).toBe(fakeResponse);
+      expect(parseResponse()).toEqual({ myQuery: { id: "1", name: "Alice" } });
+    });
+
+    it("throws when the response's data field doesn't match the query's schema", async () => {
+      const query = buildQuery(z.string());
+      const fakeResponse = {
+        json: () => ({ data: { myQuery: { id: "1" } } }),
+      };
+      mockedClient.post.mockResolvedValueOnce(fakeResponse);
+
+      const { parseResponse } = await client.request(query, { id: "123" });
+
+      expect(() => parseResponse()).toThrow();
+    });
+  });
 });

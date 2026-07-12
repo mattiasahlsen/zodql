@@ -8,7 +8,7 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Bring your own HTTP client** - Works with Axios or any client exposing a compatible `post` method, with no hard dependency on Axios itself
+- 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
 
 ## Installation
 
@@ -22,16 +22,11 @@ pnpm add zodql zod
 
 ## Quick Start
 
-The example below uses Axios as the HTTP transport, but any client exposing a compatible `post(url, data, config)` method works — install Axios separately if you want to use it:
-
-```bash
-npm install axios
-```
+The example below uses the global `fetch`, but any client whose `post` method resolves to a response with a `.json()` method works:
 
 ```typescript
 import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
-import axios from "axios";
 
 // Define your schema
 const userSchema = z.object({
@@ -48,15 +43,18 @@ const query = zodql("query", userSchema)
   .compile();
 
 // Create a client
-const axiosInstance = axios.create({
-  baseURL: "https://api.example.com/graphql",
-  headers: { Authorization: "Bearer token" },
+const client = buildZodqlClient({
+  post: (url, data) =>
+    fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+      body: JSON.stringify(data),
+    }),
 });
 
-const client = buildZodqlClient(axiosInstance);
-
 // Execute the query
-const response = await client.request(query, { userId: "123" });
+const { parseResponse } = await client.request(query, { userId: "123" });
+const data = parseResponse();
 ```
 
 ## API Documentation
@@ -109,7 +107,7 @@ const mutation = zodql("mutation", createUserSchema)
   .compile();
 
 // Execute with complex input
-const response = await client.request(mutation, {
+const { parseResponse } = await client.request(mutation, {
   input: {
     name: "John Doe",
     email: "john@example.com",
@@ -122,6 +120,7 @@ const response = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
+const data = parseResponse();
 ```
 
 ### Using Fragments
