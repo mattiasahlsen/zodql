@@ -26,6 +26,48 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
 ) => ZodqlClient<Response, RequestConfig>;
 
 /**
+ * An HTTP client exposing a Promise-based `post` method, used as the transport
+ * for a `ZodqlClient`, e.g. a thin wrapper around `fetch`.
+ *
+ * @typedef {Object} HttpClient
+ * @property {function} post - Sends a `POST` request. Takes the URL, the request
+ *   body, and an optional transport-specific config, and resolves to
+ *   `{ response, json }`, where `json()` returns the already-parsed response body.
+ */
+
+/**
+ * A GraphQL client that executes compiled operations against an {@link HttpClient}
+ * transport.
+ *
+ * @typedef {Object} ZodqlClient
+ * @property {function} request - Sends a compiled query/mutation. Takes the compiled
+ *   query (`{ queryString, variables, schema }`), an `args` object supplying a value
+ *   for each declared variable (validated and parsed by its Zod schema before the
+ *   request is sent), and an optional transport-specific request config; resolves to
+ *   `{ response, parseResponse }`, where `parseResponse()` validates and returns the
+ *   response body (see {@link ResponseData}).
+ */
+
+/**
+ * A factory that wraps an {@link HttpClient} transport in a `ZodqlClient`.
+ *
+ * @typedef {function} ZodqlClientBuilder
+ * @param {HttpClient} baseClient - The HTTP client to use as the transport.
+ * @returns {ZodqlClient} A client that executes GraphQL operations over that transport.
+ */
+
+/**
+ * The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
+ * returned by `parseResponse()`. `data` is validated against the query's schema;
+ * `extensions` and `errors` are returned as-is (unvalidated) when present.
+ *
+ * @typedef {Object} ResponseData
+ * @property {Object} data - The response payload, typed and validated by the query's schema.
+ * @property {Object} [extensions] - Server-provided extensions, if any; returned unvalidated.
+ * @property {Object} [errors] - GraphQL errors returned in the response body, if any; returned unvalidated.
+ */
+
+/**
  * Build a Zod GraphQL client using the given HTTP client as the transport.
  *
  * This function creates a GraphQL client that validates and parses variables

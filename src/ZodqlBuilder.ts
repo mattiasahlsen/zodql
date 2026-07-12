@@ -28,6 +28,8 @@ type FieldInfo = {
  * Wrapper layers can be nested in any combination (e.g. an optional array of
  * nullable objects), so this walks inward until it hits a schema that isn't
  * one of the recognized wrapper types.
+ *
+ * @private
  */
 function unwrapSchema(schema: any): any {
   let current = schema;
@@ -53,6 +55,8 @@ function unwrapSchema(schema: any): any {
  * metadata is still treated as a selection, using its own shape and no
  * arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
  * GraphQL scalar/leaf field, for which this returns `null`.
+ *
+ * @private
  */
 function getFieldInfo(schema: any): FieldInfo | null {
   const base = unwrapSchema(schema);
@@ -109,6 +113,8 @@ function formatArguments(args: Record<string, string>): string {
  * - Union fragments are always referenced via `...FragmentName`; they must be
  *   given a `name` (rather than `inline: true`) or the reference won't resolve
  *   to an emitted fragment definition.
+ *
+ * @private
  */
 function buildFieldLines(name: string, schema: any, indent: number): string[] {
   const info = getFieldInfo(schema);
@@ -165,6 +171,8 @@ function buildFieldLines(name: string, schema: any, indent: number): string[] {
  * multiple fields (regular fragment) or reused across separate `withUnionFragments`
  * calls. A fragment's own selection is walked recursively so fragments nested
  * inside another fragment's schema (including inline ones) are also collected.
+ *
+ * @private
  */
 function collectFragments(shape: z.ZodRawShape): QueryFragment[] {
   const ordered: QueryFragment[] = [];
