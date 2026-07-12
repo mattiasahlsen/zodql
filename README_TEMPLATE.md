@@ -8,22 +8,28 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Axios integration** - Built-in support for Axios HTTP client
+- 🔌 **Bring your own HTTP client** - Works with Axios or any client exposing a compatible `post` method, with no hard dependency on Axios itself
 
 ## Installation
 
 ```bash
-npm install zodql zod axios
+npm install zodql zod
 ```
 
 ```bash
-pnpm add zodql zod axios
+pnpm add zodql zod
 ```
 
 ## Quick Start
 
+The example below uses Axios as the HTTP transport, but any client exposing a compatible `post(url, data, config)` method works — install Axios separately if you want to use it:
+
+```bash
+npm install axios
+```
+
 ```typescript
-import { zodql, buildAxiosZodqlClient } from "zodql";
+import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
 import axios from "axios";
 
@@ -47,7 +53,7 @@ const axiosInstance = axios.create({
   headers: { Authorization: "Bearer token" },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
+const client = buildZodqlClient(axiosInstance);
 
 // Execute the query
 const response = await client.request(query, { userId: "123" });

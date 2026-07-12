@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { buildAxiosZodqlClient, createResponseSchema } from "./client.js";
-import { type AxiosInstance } from "axios";
+import { buildZodqlClient, createResponseSchema, type HttpClient } from "./client.js";
 import { zodql } from "./ZodqlBuilder.js";
 import { zodqlField } from "./ZodqlFieldBuilder.js";
 import { vi } from "vitest";
@@ -173,11 +172,11 @@ describe("createResponseSchema", () => {
   });
 });
 
-describe("AxiosZodqlClient", () => {
-  const mockedAxiosClient = vi.mocked<AxiosInstance>({
+describe("buildZodqlClient", () => {
+  const mockedClient = vi.mocked<HttpClient>({
     post: vi.fn(),
   } as any);
-  const client = buildAxiosZodqlClient(mockedAxiosClient);
+  const client = buildZodqlClient(mockedClient);
 
   const buildQuery = <VariableSchema extends z.ZodType>(variableSchema: VariableSchema) =>
     zodql(
@@ -206,7 +205,7 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, { id: "123" });
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith(
+    expect(mockedClient.post).toHaveBeenCalledWith(
       "",
       { query: query.queryString, variables: { id: "123" } },
       undefined
@@ -223,7 +222,7 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, {});
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
+    expect(mockedClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
   });
 
   it("allows omitting optional variables", async () => {
@@ -231,7 +230,7 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, {});
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
+    expect(mockedClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
   });
 
   it("omits variables that are explicitly undefined", async () => {
@@ -239,7 +238,7 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, { id: undefined });
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
+    expect(mockedClient.post).toHaveBeenCalledWith("", { query: query.queryString, variables: {} }, undefined);
   });
 
   it("rejects when a required variable is missing", async () => {
@@ -256,14 +255,14 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, { id: "123", extraArg: "should be ignored" } as any);
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith(
+    expect(mockedClient.post).toHaveBeenCalledWith(
       "",
       { query: query.queryString, variables: { id: "123" } },
       undefined
     );
   });
 
-  it("forwards requestConfig to the underlying axios client", async () => {
+  it("forwards requestConfig to the underlying HTTP client", async () => {
     const query = buildQuery(z.string());
 
     const requestConfig = {
@@ -273,7 +272,7 @@ describe("AxiosZodqlClient", () => {
 
     await client.request(query, { id: "123" }, requestConfig);
 
-    expect(mockedAxiosClient.post).toHaveBeenCalledWith(
+    expect(mockedClient.post).toHaveBeenCalledWith(
       "",
       { query: query.queryString, variables: { id: "123" } },
       requestConfig

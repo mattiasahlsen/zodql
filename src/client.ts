@@ -1,4 +1,3 @@
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import z from "zod";
 import type { QueryVariable } from "./types.js";
 import type { SetOptional } from "type-fest";
@@ -10,7 +9,14 @@ type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
   }[keyof T]
 >;
 
-export interface ZodqlClient<Response = AxiosResponse, RequestConfig = AxiosRequestConfig> {
+/**
+ * An HTTP client exposing a Promise-based `post` method, e.g. a configured Axios instance.
+ */
+export interface HttpClient<Response = unknown, RequestConfig = unknown> {
+  post(url: string, data: unknown, config?: RequestConfig): Promise<Response>;
+}
+
+export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
   request<Variables extends Record<string, QueryVariable>>(
     query: { variables: Variables; queryString: string },
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
@@ -18,16 +24,12 @@ export interface ZodqlClient<Response = AxiosResponse, RequestConfig = AxiosRequ
   ): Promise<Response>;
 }
 
-export type ZodqlClientBuildOptions = {
-  url: string;
-  headers?: Record<string, string>;
-  token: string;
-};
-
-export type AxiosZodqlClientBuilder = (baseClient: AxiosInstance) => ZodqlClient<AxiosResponse, AxiosRequestConfig>;
+export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
+  baseClient: HttpClient<Response, RequestConfig>
+) => ZodqlClient<Response, RequestConfig>;
 
 /**
- * Build a Zod GraphQL client using Axios as the HTTP transport.
+ * Build a Zod GraphQL client using the given HTTP client as the transport.
  *
  * This function creates a GraphQL client that validates and parses variables
  * using their Zod schemas before sending requests, so a variable's runtime
@@ -41,13 +43,16 @@ export type AxiosZodqlClientBuilder = (baseClient: AxiosInstance) => ZodqlClient
  * The returned promise rejects (without making a request) if a variable's
  * value fails its Zod schema, e.g. a required variable that was omitted.
  *
- * @param {AxiosInstance} baseClient - A configured Axios instance to use for GraphQL requests
- * @returns {ZodqlClient<AxiosResponse, AxiosRequestConfig>} A ZodqlClient instance that executes GraphQL operations
+ * `baseClient` only needs to satisfy {@link HttpClient} (a `post` method), so a
+ * real Axios instance works without adding `axios` as a dependency of this library.
+ *
+ * @param {HttpClient<Response, RequestConfig>} baseClient - An HTTP client to use for GraphQL requests, e.g. a configured Axios instance
+ * @returns {ZodqlClient<Response, RequestConfig>} A ZodqlClient instance that executes GraphQL operations
  *
  * @example
  * ```typescript
  * import axios from 'axios';
- * import { buildAxiosZodqlClient } from 'zodql';
+ * import { buildZodqlClient } from 'zodql';
  *
  * const axiosInstance = axios.create({
  *   baseURL: 'https://api.example.com/graphql',
@@ -56,18 +61,23 @@ export type AxiosZodqlClientBuilder = (baseClient: AxiosInstance) => ZodqlClient
  *   },
  * });
  *
- * const client = buildAxiosZodqlClient(axiosInstance);
+ * const client = buildZodqlClient(axiosInstance);
  *
  * const response = await client.request(query, { userId: '123' });
  * ```
  */
-export function buildAxiosZodqlClient(baseClient: AxiosInstance): ZodqlClient<AxiosResponse, AxiosRequestConfig> {
-  return new AxiosZodqlClient(baseClient);
+export function buildZodqlClient<Response = unknown, RequestConfig = unknown>(
+  baseClient: HttpClient<Response, RequestConfig>
+): ZodqlClient<Response, RequestConfig> {
+  return new ZodqlClientImplementation<Response, RequestConfig>(baseClient);
 }
 
-class AxiosZodqlClient implements ZodqlClient<AxiosResponse, AxiosRequestConfig> {
-  private readonly baseClient: AxiosInstance;
-  constructor(baseClient: AxiosInstance) {
+export class ZodqlClientImplementation<Response = unknown, RequestConfig = unknown> implements ZodqlClient<
+  Response,
+  RequestConfig
+> {
+  private readonly baseClient: HttpClient<Response, RequestConfig>;
+  constructor(baseClient: HttpClient<Response, RequestConfig>) {
     this.baseClient = baseClient;
   }
 
@@ -80,8 +90,8 @@ class AxiosZodqlClient implements ZodqlClient<AxiosResponse, AxiosRequestConfig>
       variables: Variables;
     },
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
-    requestConfig?: AxiosRequestConfig
-  ) {
+    requestConfig?: RequestConfig
+  ): Promise<Response> {
     const providedArgs = args as Record<string, unknown>;
     const parsedVariables: Record<string, unknown> = {};
 

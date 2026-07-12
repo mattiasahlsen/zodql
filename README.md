@@ -8,22 +8,28 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Axios integration** - Built-in support for Axios HTTP client
+- 🔌 **Bring your own HTTP client** - Works with Axios or any client exposing a compatible `post` method, with no hard dependency on Axios itself
 
 ## Installation
 
 ```bash
-npm install zodql zod axios
+npm install zodql zod
 ```
 
 ```bash
-pnpm add zodql zod axios
+pnpm add zodql zod
 ```
 
 ## Quick Start
 
+The example below uses Axios as the HTTP transport, but any client exposing a compatible `post(url, data, config)` method works — install Axios separately if you want to use it:
+
+```bash
+npm install axios
+```
+
 ```typescript
-import { zodql, buildAxiosZodqlClient } from "zodql";
+import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
 import axios from "axios";
 
@@ -47,7 +53,7 @@ const axiosInstance = axios.create({
   headers: { Authorization: "Bearer token" },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
+const client = buildZodqlClient(axiosInstance);
 
 // Execute the query
 const response = await client.request(query, { userId: "123" });
@@ -138,8 +144,8 @@ if empty, since an empty selection set is not valid GraphQL.</p>
 one, so calls can be chained freely. Call <code>toSchema()</code> last to produce the
 finished schema for use as a field&#39;s value in a document schema.</p>
 </dd>
-<dt><a href="#buildAxiosZodqlClient">buildAxiosZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code></dt>
-<dd><p>Build a Zod GraphQL client using Axios as the HTTP transport.</p>
+<dt><a href="#buildZodqlClient">buildZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code></dt>
+<dd><p>Build a Zod GraphQL client using the given HTTP client as the transport.</p>
 <p>This function creates a GraphQL client that validates and parses variables
 using their Zod schemas before sending requests, so a variable&#39;s runtime
 value can differ from its wire value (e.g. defaults, coercion, transforms).
@@ -151,6 +157,8 @@ inspect the response — GraphQL errors returned in a 200 response body are
 not thrown and must be checked by the caller (see <a href="#createResponseSchema">createResponseSchema</a>).
 The returned promise rejects (without making a request) if a variable&#39;s
 value fails its Zod schema, e.g. a required variable that was omitted.</p>
+<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a> (a <code>post</code> method), so a
+real Axios instance works without adding <code>axios</code> as a dependency of this library.</p>
 </dd>
 <dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
 <dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
@@ -359,10 +367,10 @@ const userField = zodqlField()
     name: z.string(),
   }));
 ```
-<a name="buildAxiosZodqlClient"></a>
+<a name="buildZodqlClient"></a>
 
-## buildAxiosZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code>
-Build a Zod GraphQL client using Axios as the HTTP transport.
+## buildZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code>
+Build a Zod GraphQL client using the given HTTP client as the transport.
 
 This function creates a GraphQL client that validates and parses variables
 using their Zod schemas before sending requests, so a variable's runtime
@@ -376,17 +384,20 @@ not thrown and must be checked by the caller (see [createResponseSchema](#create
 The returned promise rejects (without making a request) if a variable's
 value fails its Zod schema, e.g. a required variable that was omitted.
 
+`baseClient` only needs to satisfy [HttpClient](HttpClient) (a `post` method), so a
+real Axios instance works without adding `axios` as a dependency of this library.
+
 **Kind**: global function  
-**Returns**: <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
+**Returns**: <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
 
 | Param | Type | Description |
 | --- | --- | --- |
-| baseClient | <code>AxiosInstance</code> | A configured Axios instance to use for GraphQL requests |
+| baseClient | <code>HttpClient.&lt;Response, RequestConfig&gt;</code> | An HTTP client to use for GraphQL requests, e.g. a configured Axios instance |
 
 **Example**  
 ```typescript
 import axios from 'axios';
-import { buildAxiosZodqlClient } from 'zodql';
+import { buildZodqlClient } from 'zodql';
 
 const axiosInstance = axios.create({
   baseURL: 'https://api.example.com/graphql',
@@ -395,7 +406,7 @@ const axiosInstance = axios.create({
   },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
+const client = buildZodqlClient(axiosInstance);
 
 const response = await client.request(query, { userId: '123' });
 ```
