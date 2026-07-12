@@ -3,6 +3,7 @@ import { buildZodqlClient, createResponseSchema, type HttpClient } from "./clien
 import { zodql } from "./ZodqlBuilder.js";
 import { zodqlField } from "./ZodqlFieldBuilder.js";
 import { vi } from "vitest";
+import type { AxiosResponse } from "axios";
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
 import nock from "nock";
 
@@ -176,7 +177,10 @@ describe("createResponseSchema", () => {
 
 describe("buildZodqlClient", () => {
   const mockedClient = vi.mocked<HttpClient>({
-    post: vi.fn(),
+    post: vi.fn(() => ({
+      response: {},
+      json: () => ({}),
+    })),
   } as any);
   const client = buildZodqlClient(mockedClient);
 
@@ -285,9 +289,13 @@ describe("buildZodqlClient", () => {
     it("parses the response's data field against the query's schema", async () => {
       const query = buildQuery(z.string());
       const fakeResponse = {
+        headers: { "content-type": "application/json" },
+      };
+      const fakeResult = {
+        response: fakeResponse,
         json: () => ({ myQuery: { id: "1", name: "Alice" } }),
       };
-      mockedClient.post.mockResolvedValueOnce(fakeResponse);
+      mockedClient.post.mockResolvedValueOnce(fakeResult);
 
       const { response, parseResponse } = await client.request(query, { id: "123" });
 
@@ -297,10 +305,11 @@ describe("buildZodqlClient", () => {
 
     it("throws when the response's data field doesn't match the query's schema", async () => {
       const query = buildQuery(z.string());
-      const fakeResponse = {
+      const fakeResult = {
+        response: {},
         json: () => ({ data: { myQuery: { id: "1" } } }),
       };
-      mockedClient.post.mockResolvedValueOnce(fakeResponse);
+      mockedClient.post.mockResolvedValueOnce(fakeResult);
 
       const { parseResponse } = await client.request(query, { id: "123" });
 
@@ -332,12 +341,10 @@ describe("axios integration", () => {
       })
       .compile();
 
-  const buildAxiosHttpClient = (
-    axiosInstance: AxiosInstance
-  ): HttpClient<{ json: () => unknown }, AxiosRequestConfig> => ({
+  const buildAxiosHttpClient = (axiosInstance: AxiosInstance): HttpClient<AxiosResponse, AxiosRequestConfig> => ({
     post: async (url, data, config) => {
       const response = await axiosInstance.post(url, data, config);
-      return { json: () => response.data };
+      return { response, json: () => response.data };
     },
   });
 

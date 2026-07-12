@@ -13,17 +13,11 @@ type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
  * An HTTP client exposing a Promise-based `post` method whose resolved response
  * exposes a `.json()` method to read the parsed response body, e.g. the global `fetch`.
  */
-export interface HttpClient<
-  Response extends { json: () => unknown } = { json: () => unknown },
-  RequestConfig = unknown,
-> {
-  post(url: string, data: unknown, config?: RequestConfig): Promise<Response>;
+export interface HttpClient<Response = unknown, RequestConfig = unknown> {
+  post(url: string, data: unknown, config?: RequestConfig): Promise<{ response: Response; json: () => unknown }>;
 }
 
-export interface ZodqlClient<
-  Response extends { json: () => unknown } = { json: () => unknown },
-  RequestConfig = unknown,
-> {
+export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
   request<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable>>(
     query: GraphqlQuery<Schema, Variables>,
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
@@ -34,10 +28,9 @@ export interface ZodqlClient<
   }>;
 }
 
-export type ZodqlClientBuilder<
-  Response extends { json: () => unknown } = { json: () => unknown },
-  RequestConfig = unknown,
-> = (baseClient: HttpClient<Response, RequestConfig>) => ZodqlClient<Response, RequestConfig>;
+export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
+  baseClient: HttpClient<Response, RequestConfig>
+) => ZodqlClient<Response, RequestConfig>;
 
 /**
  * Build a Zod GraphQL client using the given HTTP client as the transport.
@@ -78,17 +71,16 @@ export type ZodqlClientBuilder<
  * const data = parseResponse();
  * ```
  */
-export function buildZodqlClient<
-  Response extends { json: () => unknown } = { json: () => unknown },
-  RequestConfig = unknown,
->(baseClient: HttpClient<Response, RequestConfig>): ZodqlClient<Response, RequestConfig> {
+export function buildZodqlClient<Response = unknown, RequestConfig = unknown>(
+  baseClient: HttpClient<Response, RequestConfig>
+): ZodqlClient<Response, RequestConfig> {
   return new ZodqlClientImplementation<Response, RequestConfig>(baseClient);
 }
 
-export class ZodqlClientImplementation<
-  Response extends { json: () => unknown } = { json: () => unknown },
-  RequestConfig = unknown,
-> implements ZodqlClient<Response, RequestConfig> {
+export class ZodqlClientImplementation<Response = unknown, RequestConfig = unknown> implements ZodqlClient<
+  Response,
+  RequestConfig
+> {
   private readonly baseClient: HttpClient<Response, RequestConfig>;
   constructor(baseClient: HttpClient<Response, RequestConfig>) {
     this.baseClient = baseClient;
@@ -109,7 +101,7 @@ export class ZodqlClientImplementation<
       }
     }
 
-    const response = await this.baseClient.post(
+    const { response, json } = await this.baseClient.post(
       "",
       {
         query: queryString,
@@ -120,7 +112,7 @@ export class ZodqlClientImplementation<
 
     return {
       response,
-      parseResponse: () => schema.parse(response.json()),
+      parseResponse: () => schema.parse(json()),
     };
   }
 }
