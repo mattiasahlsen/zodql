@@ -118,7 +118,7 @@ describe("union fragments", () => {
     it("fails parsing when __typename matches none of the fragments (one fragment)", () => {
       const { schema, queryString } = buildOneFragmentQuery(true);
       expect(queryString).toBe(oneFragmentQueryString);
-      expect(() => schema.parse({ node: { item: { id: "1", __typename: "Other" } } })).toThrow();
+      expect(() => schema.parse({ node: { item: { id: "1", __typename: "Other" } } })).toThrow(z.ZodError);
     });
 
     it("includes the matching fragment's data when __typename matches (one fragment)", () => {
@@ -135,7 +135,7 @@ describe("union fragments", () => {
     it("fails parsing when __typename matches none of the fragments (two fragments)", () => {
       const { schema, queryString } = buildTwoFragmentQuery(true);
       expect(queryString).toBe(twoFragmentQueryString);
-      expect(() => schema.parse({ node: { item: { id: "1", __typename: "Other" } } })).toThrow();
+      expect(() => schema.parse({ node: { item: { id: "1", __typename: "Other" } } })).toThrow(z.ZodError);
     });
 
     it("applies the correct fragment's schema by __typename (two fragments)", () => {
@@ -158,7 +158,7 @@ describe("union fragments", () => {
       expect(queryString).toBe(oneFragmentQueryString);
       expect(
         () => schema.parse({ node: { item: { id: "1", __typename: "User" } } }) // missing email
-      ).toThrow();
+      ).toThrow(z.ZodError);
     });
 
     it("strips data belonging to the non-matching fragment", () => {
