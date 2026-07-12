@@ -41,7 +41,7 @@ describe("createResponseSchema", () => {
 
       const invalidValue = { data: { user: { id: 123 } } };
 
-      expect(() => schema.parse(invalidValue)).toThrow();
+      expect(() => schema.parse(invalidValue)).toThrow(z.ZodError);
     });
 
     it("supports deeply nested data schemas", () => {
@@ -115,7 +115,7 @@ describe("createResponseSchema", () => {
         extensions: { requestId: 456 },
       };
 
-      expect(() => schema.parse(invalidValue)).toThrow();
+      expect(() => schema.parse(invalidValue)).toThrow(z.ZodError);
     });
   });
 
@@ -154,7 +154,7 @@ describe("createResponseSchema", () => {
         errors: [{ message: "Valid error" }, { msg: "Invalid error" }],
       };
 
-      expect(() => schema.parse(invalidValue)).toThrow();
+      expect(() => schema.parse(invalidValue)).toThrow(z.ZodError);
     });
 
     it("parses a response combining data, extensions and errors", () => {
@@ -304,7 +304,7 @@ describe("buildZodqlClient", () => {
 
       const { parseResponse } = await client.request(query, { id: "123" });
 
-      expect(() => parseResponse()).toThrow();
+      expect(() => parseResponse()).toThrow(z.ZodError);
     });
   });
 });
