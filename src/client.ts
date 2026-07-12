@@ -24,7 +24,7 @@ export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
     requestConfig?: RequestConfig
   ): Promise<{
     response: Response;
-    parseResponse: () => z.output<Schema>;
+    parseResponse: () => ResponseData<Schema>;
   }>;
 }
 
@@ -93,7 +93,7 @@ export class ZodqlClientImplementation<Response = unknown, RequestConfig = unkno
     { queryString, variables, schema }: GraphqlQuery<Schema, Variables>,
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
     requestConfig?: RequestConfig
-  ): Promise<{ response: Response; parseResponse: () => z.output<Schema> }> {
+  ): Promise<{ response: Response; parseResponse: () => ResponseData<Schema> }> {
     const providedArgs = args as Record<string, unknown>;
     const parsedVariables: Record<string, unknown> = {};
 
@@ -115,67 +115,21 @@ export class ZodqlClientImplementation<Response = unknown, RequestConfig = unkno
 
     return {
       response,
-      parseResponse: () => schema.parse(json()),
+      parseResponse: () => {
+        const responseSchema = createResponseDataSchema(schema);
+        const data = json();
+        const parsedData = responseSchema.parse(data);
+        return parsedData;
+      },
     };
   }
 }
 
-/**
- * Creates a Zod schema for a GraphQL response, i.e. `{ data, extensions?, errors? }`
- * as returned by a spec-compliant GraphQL server.
- *
- * `data` is required on the resulting schema and validated with `dataSchema`.
- * `extensions` and `errors` are always optional — they may be absent or
- * `undefined` regardless of whether `extensionSchema`/`errorsSchema` were
- * provided — but are validated against those schemas when present. When
- * `extensionSchema`/`errorsSchema` aren't provided, any loose object /
- * any array is accepted, respectively, i.e. present but unvalidated.
- *
- * @template Data - The type of the `data` field in the response.
- * @template Extensions - The type of the `extensions` field in the response.
- * @template Errors - The type of the `errors` field in the response.
- *
- * @param dataSchema - A Zod schema for the `data` field.
- * @param options - Configuration options.
- * @param options.extensionSchema - (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema.
- * @param options.errorsSchema - (Optional) A Zod schema for the `errors` field. Defaults to an array of any type.
- *
- * @returns A Zod object schema representing the GraphQL response structure.
- *
- * @example
- * ```ts
- * const userSchema = z.object({
- *   id: z.string(),
- *   name: z.string(),
- * });
- * const responseSchema = createResponseSchema(userSchema, {
- *  extensionSchema: z.object({ traceId: z.string() }),
- * });
- *
- * const parsedResponse = responseSchema.parse({
- *   data: { id: "1", name: "Alice" },
- *   extensions: { traceId: "abc-123" },
- * });
- * ```
- */
-export function createResponseSchema<
-  Data,
-  Extensions extends Record<string, unknown> = Record<string, unknown>,
-  Errors extends Array<unknown> = Array<unknown>,
->(
-  dataSchema: z.ZodType<Data>,
-  {
-    extensionSchema = z.looseObject({}) as z.ZodType<Extensions>,
-    errorsSchema = z.any().array() as unknown as z.ZodType<Errors>,
-  }: { extensionSchema?: z.ZodType<Extensions>; errorsSchema?: z.ZodType<Errors> } = {}
-): z.ZodObject<{
-  data: z.ZodType<Data>;
-  extensions: z.ZodOptional<z.ZodType<Extensions>>;
-  errors: z.ZodOptional<z.ZodType<Errors>>;
-}> {
+function createResponseDataSchema<Schema extends z.ZodObject>(dataSchema: Schema) {
   return z.object({
     data: dataSchema,
-    extensions: extensionSchema.optional(),
-    errors: errorsSchema.optional(),
+    extensions: z.unknown().optional(),
+    errors: z.unknown().optional(),
   });
 }
+type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;

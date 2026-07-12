@@ -156,21 +156,11 @@ configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every re
 is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> only
 parses and returns the response&#39;s <code>data</code> field against the query&#39;s schema —
 GraphQL errors returned in a 200 response body are not thrown and must be
-inspected by the caller via the returned <code>response</code> (see <a href="#createResponseSchema">createResponseSchema</a>).
+inspected by the caller via the returned <code>response</code> (see <a href="createResponseSchema">createResponseSchema</a>).
 The returned promise rejects (without making a request) if a variable&#39;s
 value fails its Zod schema, e.g. a required variable that was omitted.</p>
 <p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method that resolves to
 <code>{ response, json }</code>, where <code>json()</code> returns the already-parsed response body.</p>
-</dd>
-<dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
-<dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
-as returned by a spec-compliant GraphQL server.</p>
-<p><code>data</code> is required on the resulting schema and validated with <code>dataSchema</code>.
-<code>extensions</code> and <code>errors</code> are always optional — they may be absent or
-<code>undefined</code> regardless of whether <code>extensionSchema</code>/<code>errorsSchema</code> were
-provided — but are validated against those schemas when present. When
-<code>extensionSchema</code>/<code>errorsSchema</code> aren&#39;t provided, any loose object /
-any array is accepted, respectively, i.e. present but unvalidated.</p>
 </dd>
 <dt><a href="#hasTypename">hasTypename(obj, typename)</a> ⇒</dt>
 <dd><p>Type guard that checks whether an object&#39;s <code>__typename</code> field matches a
@@ -383,7 +373,7 @@ configured `baseURL` and headers (e.g. auth) are used as-is; every request
 is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
 parses and returns the response's `data` field against the query's schema —
 GraphQL errors returned in a 200 response body are not thrown and must be
-inspected by the caller via the returned `response` (see [createResponseSchema](#createResponseSchema)).
+inspected by the caller via the returned `response` (see [createResponseSchema](createResponseSchema)).
 The returned promise rejects (without making a request) if a variable's
 value fails its Zod schema, e.g. a required variable that was omitted.
 
@@ -415,44 +405,6 @@ const client = buildZodqlClient({
 
 const { parseResponse } = await client.request(query, { userId: '123' });
 const data = parseResponse();
-```
-<a name="createResponseSchema"></a>
-
-## createResponseSchema(dataSchema, options) ⇒
-Creates a Zod schema for a GraphQL response, i.e. `{ data, extensions?, errors? }`
-as returned by a spec-compliant GraphQL server.
-
-`data` is required on the resulting schema and validated with `dataSchema`.
-`extensions` and `errors` are always optional — they may be absent or
-`undefined` regardless of whether `extensionSchema`/`errorsSchema` were
-provided — but are validated against those schemas when present. When
-`extensionSchema`/`errorsSchema` aren't provided, any loose object /
-any array is accepted, respectively, i.e. present but unvalidated.
-
-**Kind**: global function  
-**Returns**: A Zod object schema representing the GraphQL response structure.  
-
-| Param | Description |
-| --- | --- |
-| dataSchema | A Zod schema for the `data` field. |
-| options | Configuration options. |
-| options.extensionSchema | (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema. |
-| options.errorsSchema | (Optional) A Zod schema for the `errors` field. Defaults to an array of any type. |
-
-**Example**  
-```ts
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-const responseSchema = createResponseSchema(userSchema, {
- extensionSchema: z.object({ traceId: z.string() }),
-});
-
-const parsedResponse = responseSchema.parse({
-  data: { id: "1", name: "Alice" },
-  extensions: { traceId: "abc-123" },
-});
 ```
 <a name="hasTypename"></a>
 

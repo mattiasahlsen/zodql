@@ -5,7 +5,6 @@ export { zodqlField } from "./ZodqlFieldBuilder.js";
 // Client exports
 export {
   buildZodqlClient,
-  createResponseSchema,
   ZodqlClientImplementation,
   type ZodqlClient,
   type ZodqlClientBuilder,
