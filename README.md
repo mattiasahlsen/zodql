@@ -57,7 +57,7 @@ const client = buildZodqlClient({
 
 // Execute the query
 const { parseResponse } = await client.request(query, { userId: "123" });
-const data = parseResponse();
+const { data } = parseResponse();
 ```
 
 ## API Documentation
@@ -153,12 +153,13 @@ value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to <code>undefined</code> is omitted from the request body
 entirely, rather than being sent as <code>undefined</code> or <code>null</code>. <code>baseClient</code>&#39;s
 configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every request
-is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> only
-parses and returns the response&#39;s <code>data</code> field against the query&#39;s schema —
-GraphQL errors returned in a 200 response body are not thrown and must be
-inspected by the caller via the returned <code>response</code> (see <a href="createResponseSchema">createResponseSchema</a>).
-The returned promise rejects (without making a request) if a variable&#39;s
-value fails its Zod schema, e.g. a required variable that was omitted.</p>
+is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> parses the
+response body as <code>{ data, extensions?, errors? }</code>, validating <code>data</code> against the
+query&#39;s schema; <code>extensions</code> and <code>errors</code> are returned as-is, unvalidated, if present.
+GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+must check <code>parseResponse().errors</code> themselves. The returned promise rejects (without
+making a request) if a variable&#39;s value fails its Zod schema, e.g. a required variable
+that was omitted.</p>
 <p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method that resolves to
 <code>{ response, json }</code>, where <code>json()</code> returns the already-parsed response body.</p>
 </dd>
@@ -370,12 +371,13 @@ value can differ from its wire value (e.g. defaults, coercion, transforms).
 Any variable that parses to `undefined` is omitted from the request body
 entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
 configured `baseURL` and headers (e.g. auth) are used as-is; every request
-is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
-parses and returns the response's `data` field against the query's schema —
-GraphQL errors returned in a 200 response body are not thrown and must be
-inspected by the caller via the returned `response` (see [createResponseSchema](createResponseSchema)).
-The returned promise rejects (without making a request) if a variable's
-value fails its Zod schema, e.g. a required variable that was omitted.
+is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` parses the
+response body as `{ data, extensions?, errors? }`, validating `data` against the
+query's schema; `extensions` and `errors` are returned as-is, unvalidated, if present.
+GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+must check `parseResponse().errors` themselves. The returned promise rejects (without
+making a request) if a variable's value fails its Zod schema, e.g. a required variable
+that was omitted.
 
 `baseClient` only needs to satisfy [HttpClient](HttpClient): a `post` method that resolves to
 `{ response, json }`, where `json()` returns the already-parsed response body.
@@ -404,7 +406,7 @@ const client = buildZodqlClient({
 });
 
 const { parseResponse } = await client.request(query, { userId: '123' });
-const data = parseResponse();
+const { data, errors } = parseResponse();
 ```
 <a name="hasTypename"></a>
 
@@ -516,7 +518,7 @@ const { parseResponse } = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
-const data = parseResponse();
+const { data } = parseResponse();
 ```
 
 ### Using Fragments
@@ -671,29 +673,18 @@ const schema = z.object({
 
 ### Response Validation
 
-Validate GraphQL responses with custom error handling:
+`parseResponse()` validates the response's `data` field against the query's schema and
+returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
+— check them yourself:
 
 ```typescript
-import { createResponseSchema } from "zodql";
-import { z } from "zod";
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data, errors } = parseResponse();
 
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-
-const responseSchema = createResponseSchema(userSchema, {
-  extensionSchema: z.object({ traceId: z.string() }),
-  errorsSchema: z
-    .object({
-      message: z.string(),
-      locations: z.array(z.object({ line: z.number(), column: z.number() })),
-    })
-    .array(),
-});
-
-// Parse and validate the response
-const validatedResponse = responseSchema.parse(apiResponse);
+if (errors) {
+  // handle GraphQL errors returned alongside `data`
+}
 ```
 
 ## TypeScript Support

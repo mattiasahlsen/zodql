@@ -34,12 +34,13 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * Any variable that parses to `undefined` is omitted from the request body
  * entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
  * configured `baseURL` and headers (e.g. auth) are used as-is; every request
- * is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
- * parses and returns the response's `data` field against the query's schema —
- * GraphQL errors returned in a 200 response body are not thrown and must be
- * inspected by the caller via the returned `response` (see {@link createResponseSchema}).
- * The returned promise rejects (without making a request) if a variable's
- * value fails its Zod schema, e.g. a required variable that was omitted.
+ * is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` parses the
+ * response body as `{ data, extensions?, errors? }`, validating `data` against the
+ * query's schema; `extensions` and `errors` are returned as-is, unvalidated, if present.
+ * GraphQL errors returned in a 200 response body are therefore not thrown — the caller
+ * must check `parseResponse().errors` themselves. The returned promise rejects (without
+ * making a request) if a variable's value fails its Zod schema, e.g. a required variable
+ * that was omitted.
  *
  * `baseClient` only needs to satisfy {@link HttpClient}: a `post` method that resolves to
  * `{ response, json }`, where `json()` returns the already-parsed response body.
@@ -64,7 +65,7 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * });
  *
  * const { parseResponse } = await client.request(query, { userId: '123' });
- * const data = parseResponse();
+ * const { data, errors } = parseResponse();
  * ```
  */
 export function buildZodqlClient<Response = unknown, RequestConfig = unknown>(
@@ -126,7 +127,7 @@ function createResponseDataSchema<Schema extends z.ZodObject>(dataSchema: Schema
     errors: z.unknown().optional(),
   });
 }
-type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;
+export type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;
 
 type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
   T,

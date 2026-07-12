@@ -3,7 +3,13 @@ export { zodql, zodqlFragment, type ZodqlOptions } from "./ZodqlBuilder.js";
 export { zodqlField } from "./ZodqlFieldBuilder.js";
 
 // Client exports
-export { buildZodqlClient, type ZodqlClient, type ZodqlClientBuilder, type HttpClient } from "./client.js";
+export {
+  buildZodqlClient,
+  type ZodqlClient,
+  type ZodqlClientBuilder,
+  type HttpClient,
+  type ResponseData,
+} from "./client.js";
 
 // Utility exports
 export { hasTypename } from "./utils/hasTypename.js";

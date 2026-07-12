@@ -57,7 +57,7 @@ const client = buildZodqlClient({
 
 // Execute the query
 const { parseResponse } = await client.request(query, { userId: "123" });
-const data = parseResponse();
+const { data } = parseResponse();
 ```
 
 ## API Documentation
@@ -123,7 +123,7 @@ const { parseResponse } = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
-const data = parseResponse();
+const { data } = parseResponse();
 ```
 
 ### Using Fragments
@@ -278,29 +278,18 @@ const schema = z.object({
 
 ### Response Validation
 
-Validate GraphQL responses with custom error handling:
+`parseResponse()` validates the response's `data` field against the query's schema and
+returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
+— check them yourself:
 
 ```typescript
-import { createResponseSchema } from "zodql";
-import { z } from "zod";
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data, errors } = parseResponse();
 
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-
-const responseSchema = createResponseSchema(userSchema, {
-  extensionSchema: z.object({ traceId: z.string() }),
-  errorsSchema: z
-    .object({
-      message: z.string(),
-      locations: z.array(z.object({ line: z.number(), column: z.number() })),
-    })
-    .array(),
-});
-
-// Parse and validate the response
-const validatedResponse = responseSchema.parse(apiResponse);
+if (errors) {
+  // handle GraphQL errors returned alongside `data`
+}
 ```
 
 ## TypeScript Support
