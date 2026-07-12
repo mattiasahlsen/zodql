@@ -12,11 +12,12 @@
     }
   },
   "scripts": {
-    "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript",
+    "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript && pnpm run verify:docs",
     "build": "pnpm run build:lint && pnpm run build:format && pnpm run build:typescript && pnpm run build:docs",
     "test": "vitest run --coverage",
     "test:updateSnapshots": "vitest run -u",
     "build:docs": "node scripts/generate-readme.js",
+    "verify:docs": "node scripts/verify-readme.js",
     "build:typescript": "rimraf ./dist && tsc -p ./tsconfig.build.json",
     "verify:typescript": "tsc --noEmit",
     "build:lint": "eslint 'src/**/*.ts' --fix",
