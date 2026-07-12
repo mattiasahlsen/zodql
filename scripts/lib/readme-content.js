@@ -18,5 +18,9 @@ export function generateReadmeContent(rootDir) {
     }
   );
 
-  return template.replace("{{API_DOCS}}", apiDocs.trim());
+  // Use a replacer function rather than a string so `$` sequences in the API docs
+  // (e.g. GraphQL variables like `$id`, or the literal `` `$` ``) are inserted
+  // verbatim instead of being interpreted as `String.prototype.replace` special
+  // patterns such as `` $` `` (which would splice in the surrounding template).
+  return template.replace("{{API_DOCS}}", () => apiDocs.trim());
 }

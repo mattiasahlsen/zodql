@@ -513,71 +513,7 @@ paired with everything needed to use it — the variables to pass to a
 | Name | Type | Description |
 | --- | --- | --- |
 | queryString | <code>string</code> | The full GraphQL document source: the operation plus any fragment definitions it uses. |
-| variables | <code>Object.&lt;string, QueryVariable&gt;</code> | The variable declarations passed to `defineVariables()`, keyed by variable name (without the leading `# zodql
-
-A utility library for integrating Zod schemas with GraphQL in TypeScript projects.
-
-## Features
-
-- 🔒 **Type-safe GraphQL queries** - Build GraphQL queries with full TypeScript type inference
-- ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
-- 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
-- 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
-
-## Installation
-
-```bash
-npm install zodql zod
-```
-
-```bash
-pnpm add zodql zod
-```
-
-## Quick Start
-
-The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
-
-```typescript
-import { zodql, buildZodqlClient } from "zodql";
-import { z } from "zod";
-
-// Define your schema
-const userSchema = z.object({
-  user: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-  }),
-});
-
-// Create a query
-const query = zodql("query", userSchema)
-  .defineVariables({ userId: { typeName: "ID!", schema: z.string() } })
-  .compile();
-
-// Create a client
-const client = buildZodqlClient({
-  post: async (url, data) => {
-    const response = await fetch("https://api.example.com/graphql", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
-      body: JSON.stringify(data),
-    });
-    const body = await response.json();
-    return { response, json: () => body };
-  },
-});
-
-// Execute the query
-const { parseResponse } = await client.request(query, { userId: "123" });
-const { data } = parseResponse();
-```
-
-## API Documentation
-
-). |
+| variables | <code>Object.&lt;string, QueryVariable&gt;</code> | The variable declarations passed to `defineVariables()`, keyed by variable name (without the leading `$`). |
 | schema | <code>z.ZodObject</code> | The document's root selection schema, e.g. for `z.infer<Schema>` to type the response's `data` field. |
 
 ## Advanced Usage
