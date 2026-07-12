@@ -121,7 +121,7 @@ function attachFieldMetadata(
   target[ALIAS_TARGET_KEY] = aliasFor;
 }
 
-class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> {
+class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements ZodqlFieldBuilder<FragmentsType> {
   constructor(
     private readonly args: Record<string, string> = {},
     private readonly fragments: RegularFragment[] = [],
@@ -151,20 +151,28 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> {
     return this.clone({ aliasFor: fieldName });
   }
 
-  withFragment<FragmentShape extends z.ZodRawShape>(
-    fragment: QueryFragment<FragmentShape>
-  ): ZodqlFieldBuilder<FragmentsType | AsObject<ObjectMerge<FragmentsType, z.infer<z.ZodObject<FragmentShape>>>>> {
+  withFragment<NewFragmentShape extends z.ZodRawShape>(
+    fragment: {} extends NoInfer<NewFragmentShape>
+      ? "Error: Fragment shape can not be an empty object"
+      : QueryFragment<NewFragmentShape>
+  ): ZodqlFieldBuilder<FragmentsType | AsObject<ObjectMerge<FragmentsType, z.infer<z.ZodObject<NewFragmentShape>>>>> {
     return this.clone({ fragments: [...this.fragments, { ...(fragment as QueryFragment), isRequired: false }] });
   }
 
-  withRequiredFragment<FragmentShape extends z.ZodRawShape>(
-    fragment: QueryFragment<FragmentShape>
-  ): ZodqlFieldBuilder<AsObject<ObjectMerge<FragmentsType, z.infer<z.ZodObject<FragmentShape>>>>> {
+  withRequiredFragment<NewFragmentShape extends z.ZodRawShape>(
+    fragment: {} extends NoInfer<NewFragmentShape>
+      ? "Error: Fragment shape can not be an empty object"
+      : QueryFragment<NewFragmentShape>
+  ): ZodqlFieldBuilder<AsObject<ObjectMerge<FragmentsType, z.infer<z.ZodObject<NewFragmentShape>>>>> {
     return this.clone({ fragments: [...this.fragments, { ...(fragment as QueryFragment), isRequired: true }] });
   }
 
-  withUnionFragments<Fragments extends QueryFragment[], RequireOne extends boolean>(
-    unionFragments: Fragments,
+  withUnionFragments<Fragments extends [QueryFragment, ...QueryFragment[]], RequireOne extends boolean>(
+    unionFragments: {
+      [K in keyof Fragments]: {} extends NoInfer<Fragments[K]["schema"]["shape"]>
+        ? "Error: Fragment shape can not be an empty object"
+        : Fragments[K];
+    },
     { requireOne }: { requireOne: RequireOne }
   ): RequireOne extends true
     ? ZodqlFieldBuilder<
@@ -184,10 +192,11 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> {
             >
           >
       > {
-    if (unionFragments.length === 0) {
+    const fragments = unionFragments as unknown as QueryFragment[];
+    if (fragments.length === 0) {
       throw new Error("Union fragments array can not be empty");
     }
-    return this.clone({ unionFragments: { fragments: [...unionFragments], requireOne } });
+    return this.clone({ unionFragments: { fragments: [...fragments], requireOne } });
   }
 
   toSchema<Schema extends z.ZodObject>(
