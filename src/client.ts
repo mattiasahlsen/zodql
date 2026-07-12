@@ -29,9 +29,17 @@ export type AxiosZodqlClientBuilder = (baseClient: AxiosInstance) => ZodqlClient
 /**
  * Build a Zod GraphQL client using Axios as the HTTP transport.
  *
- * This function creates a GraphQL client that validates variables using Zod schemas
- * before sending requests. The client handles GraphQL query execution and returns
- * Axios responses for further processing.
+ * This function creates a GraphQL client that validates and parses variables
+ * using their Zod schemas before sending requests, so a variable's runtime
+ * value can differ from its wire value (e.g. defaults, coercion, transforms).
+ * Any variable that parses to `undefined` is omitted from the request body
+ * entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
+ * configured `baseURL` and headers (e.g. auth) are used as-is; every request
+ * is a `POST` with a `{ query, variables }` JSON body. The client does not
+ * inspect the response — GraphQL errors returned in a 200 response body are
+ * not thrown and must be checked by the caller (see {@link createResponseSchema}).
+ * The returned promise rejects (without making a request) if a variable's
+ * value fails its Zod schema, e.g. a required variable that was omitted.
  *
  * @param {AxiosInstance} baseClient - A configured Axios instance to use for GraphQL requests
  * @returns {ZodqlClient<AxiosResponse, AxiosRequestConfig>} A ZodqlClient instance that executes GraphQL operations
@@ -96,15 +104,24 @@ class AxiosZodqlClient implements ZodqlClient<AxiosResponse, AxiosRequestConfig>
 }
 
 /**
- * Creates a Zod schema for a GraphQL response.
+ * Creates a Zod schema for a GraphQL response, i.e. `{ data, extensions?, errors? }`
+ * as returned by a spec-compliant GraphQL server.
+ *
+ * `data` is required on the resulting schema and validated with `dataSchema`.
+ * `extensions` and `errors` are always optional — they may be absent or
+ * `undefined` regardless of whether `extensionSchema`/`errorsSchema` were
+ * provided — but are validated against those schemas when present. When
+ * `extensionSchema`/`errorsSchema` aren't provided, any loose object /
+ * any array is accepted, respectively, i.e. present but unvalidated.
  *
  * @template Data - The type of the `data` field in the response.
  * @template Extensions - The type of the `extensions` field in the response.
  * @template Errors - The type of the `errors` field in the response.
  *
  * @param dataSchema - A Zod schema for the `data` field.
- * @param extensionSchema - (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema.
- * @param errorsSchema - (Optional) A Zod schema for the `errors` field. Defaults to an array of any type.
+ * @param options - Configuration options.
+ * @param options.extensionSchema - (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema.
+ * @param options.errorsSchema - (Optional) A Zod schema for the `errors` field. Defaults to an array of any type.
  *
  * @returns A Zod object schema representing the GraphQL response structure.
  *

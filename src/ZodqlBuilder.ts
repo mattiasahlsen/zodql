@@ -21,8 +21,14 @@ type FieldInfo = {
   unionFragments: { fragments: QueryFragment[]; requireOne: boolean } | null;
 };
 
-/** Strip the wrapper schemas (optional / nullable / default / array) that don't
- * affect the emitted GraphQL selection, returning the inner schema. */
+/**
+ * Strip the wrapper schemas (optional / nullable / default / array) that don't
+ * affect the emitted GraphQL selection, returning the inner schema.
+ *
+ * Wrapper layers can be nested in any combination (e.g. an optional array of
+ * nullable objects), so this walks inward until it hits a schema that isn't
+ * one of the recognized wrapper types.
+ */
 function unwrapSchema(schema: any): any {
   let current = schema;
   while (current && current.def) {
@@ -38,8 +44,16 @@ function unwrapSchema(schema: any): any {
   return current;
 }
 
-/** Read the field metadata off a schema, or fall back to a plain object's shape.
- * Returns `null` for leaf/scalar schemas that emit a single field name. */
+/**
+ * Read the field metadata off a schema, or fall back to a plain object's shape.
+ *
+ * Fields built with `zodqlField().toSchema(...)` carry their selection metadata
+ * (core shape, arguments, alias, fragments) under symbol keys on the (unwrapped)
+ * schema; this reads it back out. A plain `z.object(...)` schema with no such
+ * metadata is still treated as a selection, using its own shape and no
+ * arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
+ * GraphQL scalar/leaf field, for which this returns `null`.
+ */
 function getFieldInfo(schema: any): FieldInfo | null {
   const base = unwrapSchema(schema);
   if (!base) return null;
@@ -79,7 +93,23 @@ function formatArguments(args: Record<string, string>): string {
   return ` (${entries.map(([key, value]) => `${key}: ${value}`).join(", ")})`;
 }
 
-/** Emit the selection lines for a single field (recursively). */
+/**
+ * Emit the selection lines for a single field, recursing into its children.
+ *
+ * Leaf/scalar fields (where {@link getFieldInfo} returns `null`) are emitted as
+ * a bare field name. Fields with metadata are emitted as `name { ... }`,
+ * optionally rewritten to `alias: name { ... }` when the field was built with
+ * `asAliasFor()`, and with `(arg: value, ...)` appended when arguments were
+ * attached via `withArguments()`. Inside the block:
+ * - Child fields from the field's own core shape are emitted first.
+ * - If the field has union fragments, a `__typename` selection is added so the
+ *   response can be discriminated at parse time.
+ * - Inline regular fragments (`inline: true`) have their fields spread directly
+ *   into the block; named regular fragments are referenced via `...FragmentName`.
+ * - Union fragments are always referenced via `...FragmentName`; they must be
+ *   given a `name` (rather than `inline: true`) or the reference won't resolve
+ *   to an emitted fragment definition.
+ */
 function buildFieldLines(name: string, schema: any, indent: number): string[] {
   const info = getFieldInfo(schema);
   const pad = INDENT_UNIT.repeat(indent);
@@ -124,8 +154,18 @@ function buildFieldLines(name: string, schema: any, indent: number): string[] {
   return lines;
 }
 
-/** Collect the named fragments reachable from a document, in the order they
- * should be emitted (depth-first, own fragments before nested selections). */
+/**
+ * Collect the named fragments reachable from a document, in the order they
+ * should be emitted (depth-first, own fragments before nested selections).
+ *
+ * Only fragments with a `name` are collected here — inline fragments (`inline:
+ * true`) have no standalone definition to emit, since their fields are spread
+ * directly into the parent selection by {@link buildFieldLines}. Each named
+ * fragment is emitted at most once, keyed by name, even if it's attached to
+ * multiple fields (regular fragment) or reused across separate `withUnionFragments`
+ * calls. A fragment's own selection is walked recursively so fragments nested
+ * inside another fragment's schema (including inline ones) are also collected.
+ */
 function collectFragments(shape: z.ZodRawShape): QueryFragment[] {
   const ordered: QueryFragment[] = [];
   const seen = new Set<string>();
@@ -194,8 +234,14 @@ export type ZodqlOptions = {
  * This function initializes a builder that can be used to define variables and compile
  * GraphQL query strings with associated Zod schemas for type-safe GraphQL operations.
  *
+ * The returned builder is immutable: `defineVariables()` returns a new builder
+ * with the added variables rather than mutating this one, so it's safe to chain
+ * or to branch off a shared base builder. Call `compile()` last to produce the
+ * final query string, variables, and schema.
+ *
  * @param {("query"|"mutation")} operation - The GraphQL operation type, either "query" or "mutation"
- * @param {z.ZodObject} documentSchema - Zod schema representing the GraphQL document structure
+ * @param {z.ZodObject} documentSchema - Zod schema (built from plain fields and/or `zodqlField()`
+ *   fields) representing the GraphQL document's root selection set
  * @param {ZodqlOptions} [options] - Optional settings for the operation. See {@link ZodqlOptions} for the available fields.
  * @returns {ZodqlBuilder} A ZodqlBuilder instance for chaining operations
  *
@@ -231,11 +277,20 @@ export function zodql<Schema extends z.ZodObject>(
  *
  * Fragments allow you to reuse common field selections across multiple queries.
  * This function validates and returns a fragment definition that can be used with
- * zodqlField's withFragment() or withRequiredFragment() methods.
+ * zodqlField's withFragment(), withRequiredFragment(), or withUnionFragments() methods.
+ *
+ * A fragment must either be given a `name` (emitted as a standalone named
+ * fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
+ * `inline: true` (its fields are spread directly into the parent selection
+ * instead, with no separate fragment definition). Union fragments (used with
+ * `withUnionFragments()`) must use `name`, since inline fragments have nothing
+ * for the `...FragmentName` reference to resolve to. This is enforced at the
+ * type level; at runtime, the fragment's schema shape is checked and rejected
+ * if empty, since an empty selection set is not valid GraphQL.
  *
  * @param {QueryFragment} fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
  * @returns {QueryFragment} The validated fragment definition for use in queries
- * @throws {Error} If the fragment shape is an empty object
+ * @throws {Error} If the fragment's schema shape is an empty object
  *
  * @example
  * ```typescript
@@ -274,12 +329,17 @@ class ZodqlBuilder<Schema extends z.ZodObject, Variables extends Record<string, 
     private readonly options: ZodqlOptions = {}
   ) {}
 
+  // Returns a new builder with `newVariables` merged in; does not mutate this
+  // one. Later calls win on name collisions, since object spread is last-wins.
   defineVariables<NewVariables extends Record<string, QueryVariable>>(
     newVariables: NewVariables
   ): ZodqlBuilder<Schema, Variables & NewVariables> {
     return new ZodqlBuilder(this.operation, this.schema, { ...this.variables, ...newVariables }, this.options);
   }
 
+  // Renders the document schema (and any fragments it reaches) into GraphQL
+  // source text. Throws only if `options.operationName` was set to an invalid
+  // GraphQL name.
   compile(): GraphqlQuery<Schema, Variables> {
     const { operationName } = this.options;
     if (operationName !== undefined && !GRAPHQL_NAME_REGEX.test(operationName)) {
