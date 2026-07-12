@@ -61,46 +61,106 @@ const response = await client.request(query, { userId: "123" });
 <dt><a href="#unwrapSchema">unwrapSchema()</a></dt>
 <dd><p>Strip the wrapper schemas (optional / nullable / default / array) that don&#39;t
 affect the emitted GraphQL selection, returning the inner schema.</p>
+<p>Wrapper layers can be nested in any combination (e.g. an optional array of
+nullable objects), so this walks inward until it hits a schema that isn&#39;t
+one of the recognized wrapper types.</p>
 </dd>
 <dt><a href="#getFieldInfo">getFieldInfo()</a></dt>
-<dd><p>Read the field metadata off a schema, or fall back to a plain object&#39;s shape.
-Returns <code>null</code> for leaf/scalar schemas that emit a single field name.</p>
+<dd><p>Read the field metadata off a schema, or fall back to a plain object&#39;s shape.</p>
+<p>Fields built with <code>zodqlField().toSchema(...)</code> carry their selection metadata
+(core shape, arguments, alias, fragments) under symbol keys on the (unwrapped)
+schema; this reads it back out. A plain <code>z.object(...)</code> schema with no such
+metadata is still treated as a selection, using its own shape and no
+arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
+GraphQL scalar/leaf field, for which this returns <code>null</code>.</p>
 </dd>
 <dt><a href="#buildFieldLines">buildFieldLines()</a></dt>
-<dd><p>Emit the selection lines for a single field (recursively).</p>
+<dd><p>Emit the selection lines for a single field, recursing into its children.</p>
+<p>Leaf/scalar fields (where <a href="#getFieldInfo">getFieldInfo</a> returns <code>null</code>) are emitted as
+a bare field name. Fields with metadata are emitted as <code>name { ... }</code>,
+optionally rewritten to <code>alias: name { ... }</code> when the field was built with
+<code>asAliasFor()</code>, and with <code>(arg: value, ...)</code> appended when arguments were
+attached via <code>withArguments()</code>. Inside the block:</p>
+<ul>
+<li>Child fields from the field&#39;s own core shape are emitted first.</li>
+<li>If the field has union fragments, a <code>__typename</code> selection is added so the
+response can be discriminated at parse time.</li>
+<li>Inline regular fragments (<code>inline: true</code>) have their fields spread directly
+into the block; named regular fragments are referenced via <code>...FragmentName</code>.</li>
+<li>Union fragments are always referenced via <code>...FragmentName</code>; they must be
+given a <code>name</code> (rather than <code>inline: true</code>) or the reference won&#39;t resolve
+to an emitted fragment definition.</li>
+</ul>
 </dd>
 <dt><a href="#collectFragments">collectFragments()</a></dt>
 <dd><p>Collect the named fragments reachable from a document, in the order they
 should be emitted (depth-first, own fragments before nested selections).</p>
+<p>Only fragments with a <code>name</code> are collected here — inline fragments (<code>inline: true</code>) have no standalone definition to emit, since their fields are spread
+directly into the parent selection by <a href="#buildFieldLines">buildFieldLines</a>. Each named
+fragment is emitted at most once, keyed by name, even if it&#39;s attached to
+multiple fields (regular fragment) or reused across separate <code>withUnionFragments</code>
+calls. A fragment&#39;s own selection is walked recursively so fragments nested
+inside another fragment&#39;s schema (including inline ones) are also collected.</p>
 </dd>
 <dt><a href="#zodql">zodql(operation, documentSchema, [options])</a> ⇒ <code>ZodqlBuilder</code></dt>
 <dd><p>Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas.</p>
 <p>This function initializes a builder that can be used to define variables and compile
 GraphQL query strings with associated Zod schemas for type-safe GraphQL operations.</p>
+<p>The returned builder is immutable: <code>defineVariables()</code> returns a new builder
+with the added variables rather than mutating this one, so it&#39;s safe to chain
+or to branch off a shared base builder. Call <code>compile()</code> last to produce the
+final query string, variables, and schema.</p>
 </dd>
 <dt><a href="#zodqlFragment">zodqlFragment(fragmentParam)</a> ⇒ <code>QueryFragment</code></dt>
 <dd><p>Define a GraphQL fragment from a Zod schema.</p>
 <p>Fragments allow you to reuse common field selections across multiple queries.
 This function validates and returns a fragment definition that can be used with
-zodqlField&#39;s withFragment() or withRequiredFragment() methods.</p>
+zodqlField&#39;s withFragment(), withRequiredFragment(), or withUnionFragments() methods.</p>
+<p>A fragment must either be given a <code>name</code> (emitted as a standalone named
+fragment, e.g. <code>...UserFields</code>, referenced wherever it&#39;s attached) or marked
+<code>inline: true</code> (its fields are spread directly into the parent selection
+instead, with no separate fragment definition). Union fragments (used with
+<code>withUnionFragments()</code>) must use <code>name</code>, since inline fragments have nothing
+for the <code>...FragmentName</code> reference to resolve to. This is enforced at the
+type level; at runtime, the fragment&#39;s schema shape is checked and rejected
+if empty, since an empty selection set is not valid GraphQL.</p>
 </dd>
 <dt><a href="#zodqlField">zodqlField()</a> ⇒ <code>ZodqlFieldBuilder</code></dt>
 <dd><p>Create a ZodqlFieldBuilder for building GraphQL fields with arguments, fragments, and aliases.</p>
 <p>This builder provides a fluent interface to configure GraphQL fields with:</p>
 <ul>
 <li>Arguments for parameterized queries</li>
-<li>Fragments for type-specific field selection</li>
+<li>Optional or required fragments for type-specific field selection</li>
+<li>Discriminated union fragments, selected by <code>__typename</code> at parse time</li>
 <li>Aliases to query the same field multiple times with different arguments</li>
 </ul>
+<p>Each <code>with*</code> method returns a new builder rather than mutating the current
+one, so calls can be chained freely. Call <code>toSchema()</code> last to produce the
+finished schema for use as a field&#39;s value in a document schema.</p>
 </dd>
 <dt><a href="#buildAxiosZodqlClient">buildAxiosZodqlClient(baseClient)</a> ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code></dt>
 <dd><p>Build a Zod GraphQL client using Axios as the HTTP transport.</p>
-<p>This function creates a GraphQL client that validates variables using Zod schemas
-before sending requests. The client handles GraphQL query execution and returns
-Axios responses for further processing.</p>
+<p>This function creates a GraphQL client that validates and parses variables
+using their Zod schemas before sending requests, so a variable&#39;s runtime
+value can differ from its wire value (e.g. defaults, coercion, transforms).
+Any variable that parses to <code>undefined</code> is omitted from the request body
+entirely, rather than being sent as <code>undefined</code> or <code>null</code>. <code>baseClient</code>&#39;s
+configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every request
+is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. The client does not
+inspect the response — GraphQL errors returned in a 200 response body are
+not thrown and must be checked by the caller (see <a href="#createResponseSchema">createResponseSchema</a>).
+The returned promise rejects (without making a request) if a variable&#39;s
+value fails its Zod schema, e.g. a required variable that was omitted.</p>
 </dd>
-<dt><a href="#createResponseSchema">createResponseSchema(dataSchema, extensionSchema, errorsSchema)</a> ⇒</dt>
-<dd><p>Creates a Zod schema for a GraphQL response.</p>
+<dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
+<dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
+as returned by a spec-compliant GraphQL server.</p>
+<p><code>data</code> is required on the resulting schema and validated with <code>dataSchema</code>.
+<code>extensions</code> and <code>errors</code> are always optional — they may be absent or
+<code>undefined</code> regardless of whether <code>extensionSchema</code>/<code>errorsSchema</code> were
+provided — but are validated against those schemas when present. When
+<code>extensionSchema</code>/<code>errorsSchema</code> aren&#39;t provided, any loose object /
+any array is accepted, respectively, i.e. present but unvalidated.</p>
 </dd>
 <dt><a href="#hasTypename">hasTypename(obj, typename)</a> ⇒</dt>
 <dd><p>Type guard that checks whether an object&#39;s <code>__typename</code> field matches a
@@ -124,18 +184,42 @@ useful for nullable GraphQL union/interface fields.</p>
 Strip the wrapper schemas (optional / nullable / default / array) that don't
 affect the emitted GraphQL selection, returning the inner schema.
 
+Wrapper layers can be nested in any combination (e.g. an optional array of
+nullable objects), so this walks inward until it hits a schema that isn't
+one of the recognized wrapper types.
+
 **Kind**: global function  
 <a name="getFieldInfo"></a>
 
 ## getFieldInfo()
 Read the field metadata off a schema, or fall back to a plain object's shape.
-Returns `null` for leaf/scalar schemas that emit a single field name.
+
+Fields built with `zodqlField().toSchema(...)` carry their selection metadata
+(core shape, arguments, alias, fragments) under symbol keys on the (unwrapped)
+schema; this reads it back out. A plain `z.object(...)` schema with no such
+metadata is still treated as a selection, using its own shape and no
+arguments/alias/fragments. Anything else (string, number, enum, etc.) is a
+GraphQL scalar/leaf field, for which this returns `null`.
 
 **Kind**: global function  
 <a name="buildFieldLines"></a>
 
 ## buildFieldLines()
-Emit the selection lines for a single field (recursively).
+Emit the selection lines for a single field, recursing into its children.
+
+Leaf/scalar fields (where [getFieldInfo](#getFieldInfo) returns `null`) are emitted as
+a bare field name. Fields with metadata are emitted as `name { ... }`,
+optionally rewritten to `alias: name { ... }` when the field was built with
+`asAliasFor()`, and with `(arg: value, ...)` appended when arguments were
+attached via `withArguments()`. Inside the block:
+- Child fields from the field's own core shape are emitted first.
+- If the field has union fragments, a `__typename` selection is added so the
+  response can be discriminated at parse time.
+- Inline regular fragments (`inline: true`) have their fields spread directly
+  into the block; named regular fragments are referenced via `...FragmentName`.
+- Union fragments are always referenced via `...FragmentName`; they must be
+  given a `name` (rather than `inline: true`) or the reference won't resolve
+  to an emitted fragment definition.
 
 **Kind**: global function  
 <a name="collectFragments"></a>
@@ -143,6 +227,14 @@ Emit the selection lines for a single field (recursively).
 ## collectFragments()
 Collect the named fragments reachable from a document, in the order they
 should be emitted (depth-first, own fragments before nested selections).
+
+Only fragments with a `name` are collected here — inline fragments (`inline:
+true`) have no standalone definition to emit, since their fields are spread
+directly into the parent selection by [buildFieldLines](#buildFieldLines). Each named
+fragment is emitted at most once, keyed by name, even if it's attached to
+multiple fields (regular fragment) or reused across separate `withUnionFragments`
+calls. A fragment's own selection is walked recursively so fragments nested
+inside another fragment's schema (including inline ones) are also collected.
 
 **Kind**: global function  
 <a name="zodql"></a>
@@ -153,13 +245,18 @@ Create a ZodqlBuilder for building GraphQL queries or mutations from Zod schemas
 This function initializes a builder that can be used to define variables and compile
 GraphQL query strings with associated Zod schemas for type-safe GraphQL operations.
 
+The returned builder is immutable: `defineVariables()` returns a new builder
+with the added variables rather than mutating this one, so it's safe to chain
+or to branch off a shared base builder. Call `compile()` last to produce the
+final query string, variables, and schema.
+
 **Kind**: global function  
 **Returns**: <code>ZodqlBuilder</code> - A ZodqlBuilder instance for chaining operations  
 
 | Param | Type | Description |
 | --- | --- | --- |
 | operation | <code>&quot;query&quot;</code> \| <code>&quot;mutation&quot;</code> | The GraphQL operation type, either "query" or "mutation" |
-| documentSchema | <code>z.ZodObject</code> | Zod schema representing the GraphQL document structure |
+| documentSchema | <code>z.ZodObject</code> | Zod schema (built from plain fields and/or `zodqlField()`   fields) representing the GraphQL document's root selection set |
 | [options] | [<code>ZodqlOptions</code>](#ZodqlOptions) | Optional settings for the operation. See [ZodqlOptions](#ZodqlOptions) for the available fields. |
 
 **Example**  
@@ -187,13 +284,22 @@ Define a GraphQL fragment from a Zod schema.
 
 Fragments allow you to reuse common field selections across multiple queries.
 This function validates and returns a fragment definition that can be used with
-zodqlField's withFragment() or withRequiredFragment() methods.
+zodqlField's withFragment(), withRequiredFragment(), or withUnionFragments() methods.
+
+A fragment must either be given a `name` (emitted as a standalone named
+fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
+`inline: true` (its fields are spread directly into the parent selection
+instead, with no separate fragment definition). Union fragments (used with
+`withUnionFragments()`) must use `name`, since inline fragments have nothing
+for the `...FragmentName` reference to resolve to. This is enforced at the
+type level; at runtime, the fragment's schema shape is checked and rejected
+if empty, since an empty selection set is not valid GraphQL.
 
 **Kind**: global function  
 **Returns**: <code>QueryFragment</code> - The validated fragment definition for use in queries  
 **Throws**:
 
-- <code>Error</code> If the fragment shape is an empty object
+- <code>Error</code> If the fragment's schema shape is an empty object
 
 
 | Param | Type | Description |
@@ -223,8 +329,13 @@ Create a ZodqlFieldBuilder for building GraphQL fields with arguments, fragments
 
 This builder provides a fluent interface to configure GraphQL fields with:
 - Arguments for parameterized queries
-- Fragments for type-specific field selection
+- Optional or required fragments for type-specific field selection
+- Discriminated union fragments, selected by `__typename` at parse time
 - Aliases to query the same field multiple times with different arguments
+
+Each `with*` method returns a new builder rather than mutating the current
+one, so calls can be chained freely. Call `toSchema()` last to produce the
+finished schema for use as a field's value in a document schema.
 
 **Kind**: global function  
 **Returns**: <code>ZodqlFieldBuilder</code> - A new ZodqlFieldBuilder instance for configuring field properties  
@@ -253,9 +364,17 @@ const userField = zodqlField()
 ## buildAxiosZodqlClient(baseClient) ⇒ <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code>
 Build a Zod GraphQL client using Axios as the HTTP transport.
 
-This function creates a GraphQL client that validates variables using Zod schemas
-before sending requests. The client handles GraphQL query execution and returns
-Axios responses for further processing.
+This function creates a GraphQL client that validates and parses variables
+using their Zod schemas before sending requests, so a variable's runtime
+value can differ from its wire value (e.g. defaults, coercion, transforms).
+Any variable that parses to `undefined` is omitted from the request body
+entirely, rather than being sent as `undefined` or `null`. `baseClient`'s
+configured `baseURL` and headers (e.g. auth) are used as-is; every request
+is a `POST` with a `{ query, variables }` JSON body. The client does not
+inspect the response — GraphQL errors returned in a 200 response body are
+not thrown and must be checked by the caller (see [createResponseSchema](#createResponseSchema)).
+The returned promise rejects (without making a request) if a variable's
+value fails its Zod schema, e.g. a required variable that was omitted.
 
 **Kind**: global function  
 **Returns**: <code>ZodqlClient.&lt;AxiosResponse, AxiosRequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
@@ -282,8 +401,16 @@ const response = await client.request(query, { userId: '123' });
 ```
 <a name="createResponseSchema"></a>
 
-## createResponseSchema(dataSchema, extensionSchema, errorsSchema) ⇒
-Creates a Zod schema for a GraphQL response.
+## createResponseSchema(dataSchema, options) ⇒
+Creates a Zod schema for a GraphQL response, i.e. `{ data, extensions?, errors? }`
+as returned by a spec-compliant GraphQL server.
+
+`data` is required on the resulting schema and validated with `dataSchema`.
+`extensions` and `errors` are always optional — they may be absent or
+`undefined` regardless of whether `extensionSchema`/`errorsSchema` were
+provided — but are validated against those schemas when present. When
+`extensionSchema`/`errorsSchema` aren't provided, any loose object /
+any array is accepted, respectively, i.e. present but unvalidated.
 
 **Kind**: global function  
 **Returns**: A Zod object schema representing the GraphQL response structure.  
@@ -291,8 +418,9 @@ Creates a Zod schema for a GraphQL response.
 | Param | Description |
 | --- | --- |
 | dataSchema | A Zod schema for the `data` field. |
-| extensionSchema | (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema. |
-| errorsSchema | (Optional) A Zod schema for the `errors` field. Defaults to an array of any type. |
+| options | Configuration options. |
+| options.extensionSchema | (Optional) A Zod schema for the `extensions` field. Defaults to a loose object schema. |
+| options.errorsSchema | (Optional) A Zod schema for the `errors` field. Defaults to an array of any type. |
 
 **Example**  
 ```ts

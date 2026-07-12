@@ -23,7 +23,15 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
   asAliasFor(fieldName: string): ZodqlFieldBuilder<FragmentsType>;
 
   /**
-   * Add a fragment to the field.
+   * Add an optional fragment to the field.
+   *
+   * The fragment's fields are made optional on the parsed schema (via
+   * `.partial()`), since a fragment attached with `withFragment()` may target a
+   * type the actual response doesn't match — the fragment's fields will simply
+   * be absent in that case. If the same field name is defined by more than one
+   * attached fragment with incompatible types, it's parsed as a union of the
+   * candidate schemas. Can be called multiple times to attach several fragments
+   * to the same field.
    *
    * @param fragment - The QueryFragment to add.
    * @returns New ZodqlFieldBuilder instance with the added fragment.
@@ -37,6 +45,11 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
   /**
    * Add a required fragment to the field.
    *
+   * Unlike `withFragment()`, the fragment's fields are merged into the parsed
+   * schema as-is (not made optional) and are always expected to be present in
+   * the response. Use this when the fragment targets a type the field is
+   * guaranteed to resolve to, rather than one of several possible types.
+   *
    * @param fragment - The required QueryFragment to add.
    * @returns New ZodqlFieldBuilder instance with the added required fragment.
    */
@@ -49,15 +62,21 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
   /**
    * Add discriminated union fragments to the field, using `__typename` as the discriminator.
    *
-   * Each fragment targets a specific GraphQL type. At parse time, the `__typename` field
-   * determines which fragment schema is applied.
+   * Each fragment targets a specific GraphQL type. A `__typename` selection is
+   * automatically added to the compiled query, and at parse time its value
+   * determines which fragment schema is applied to the rest of the fields —
+   * any fields belonging to a non-matching fragment are stripped from the
+   * parsed result. Fragments passed here must use `name` (not `inline: true`),
+   * and each should target a different type via `on`.
    *
    * @param fragments - A non-empty array of QueryFragments, each targeting a different type via `on`.
    * @param options - Configuration options.
    * @param options.requireOne - If `true`, parsing fails when `__typename` doesn't match any fragment.
-   *   If `false`, unknown typenames are accepted with only the base schema fields.
+   *   If `false`, unknown typenames are accepted with only the base schema fields (fields from the
+   *   field's own selection and any `withFragment`/`withRequiredFragment` fragments).
    *   Known typenames must still satisfy their fragment's required fields.
    * @returns New ZodqlFieldBuilder instance with the union fragment schemas applied.
+   * @throws {Error} If `fragments` is empty.
    */
   withUnionFragments: <Fragments extends [QueryFragment, ...QueryFragment[]], RequireOne extends boolean>(
     fragments: {
@@ -86,7 +105,13 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
       >;
 
   /**
-   * Apply to a Zod object schema.
+   * Finalize the field: attach this builder's metadata (arguments, alias,
+   * fragments) to `rawSchema` and merge in the fragment fields so the result
+   * can be used directly as a field's value in a document schema passed to `zodql()`.
+   *
+   * The returned schema is a distinct object from `rawSchema` — a new merged
+   * shape is built so per-field metadata is never written onto a schema that
+   * might be shared between multiple fields (e.g. reused across a query).
    *
    * @param rawSchema - The base Zod object schema to apply the field to.
    * @returns The modified Zod schema with field metadata attached and fragment schemas merged.
@@ -297,8 +322,13 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements 
  *
  * This builder provides a fluent interface to configure GraphQL fields with:
  * - Arguments for parameterized queries
- * - Fragments for type-specific field selection
+ * - Optional or required fragments for type-specific field selection
+ * - Discriminated union fragments, selected by `__typename` at parse time
  * - Aliases to query the same field multiple times with different arguments
+ *
+ * Each `with*` method returns a new builder rather than mutating the current
+ * one, so calls can be chained freely. Call `toSchema()` last to produce the
+ * finished schema for use as a field's value in a document schema.
  *
  * @returns {ZodqlFieldBuilder} A new ZodqlFieldBuilder instance for configuring field properties
  *
