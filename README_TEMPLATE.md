@@ -8,24 +8,25 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - ✅ **Runtime validation** - Validate GraphQL responses using Zod schemas
 - 🧩 **Fragment support** - Reuse common field selections with GraphQL fragments
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
-- 🔌 **Axios integration** - Built-in support for Axios HTTP client
+- 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
 
 ## Installation
 
 ```bash
-npm install zodql zod axios
+npm install zodql zod
 ```
 
 ```bash
-pnpm add zodql zod axios
+pnpm add zodql zod
 ```
 
 ## Quick Start
 
+The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
+
 ```typescript
-import { zodql, buildAxiosZodqlClient } from "zodql";
+import { zodql, buildZodqlClient } from "zodql";
 import { z } from "zod";
-import axios from "axios";
 
 // Define your schema
 const userSchema = z.object({
@@ -42,15 +43,21 @@ const query = zodql("query", userSchema)
   .compile();
 
 // Create a client
-const axiosInstance = axios.create({
-  baseURL: "https://api.example.com/graphql",
-  headers: { Authorization: "Bearer token" },
+const client = buildZodqlClient({
+  post: async (url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
 });
 
-const client = buildAxiosZodqlClient(axiosInstance);
-
 // Execute the query
-const response = await client.request(query, { userId: "123" });
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data } = parseResponse();
 ```
 
 ## API Documentation
@@ -103,7 +110,7 @@ const mutation = zodql("mutation", createUserSchema)
   .compile();
 
 // Execute with complex input
-const response = await client.request(mutation, {
+const { parseResponse } = await client.request(mutation, {
   input: {
     name: "John Doe",
     email: "john@example.com",
@@ -116,6 +123,7 @@ const response = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
+const { data } = parseResponse();
 ```
 
 ### Using Fragments
@@ -270,29 +278,18 @@ const schema = z.object({
 
 ### Response Validation
 
-Validate GraphQL responses with custom error handling:
+`parseResponse()` validates the response's `data` field against the query's schema and
+returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
+— check them yourself:
 
 ```typescript
-import { createResponseSchema } from "zodql";
-import { z } from "zod";
+const { parseResponse } = await client.request(query, { userId: "123" });
+const { data, errors } = parseResponse();
 
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-
-const responseSchema = createResponseSchema(userSchema, {
-  extensionSchema: z.object({ traceId: z.string() }),
-  errorsSchema: z
-    .object({
-      message: z.string(),
-      locations: z.array(z.object({ line: z.number(), column: z.number() })),
-    })
-    .array(),
-});
-
-// Parse and validate the response
-const validatedResponse = responseSchema.parse(apiResponse);
+if (errors) {
+  // handle GraphQL errors returned alongside `data`
+}
 ```
 
 ## TypeScript Support

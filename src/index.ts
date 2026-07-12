@@ -4,11 +4,11 @@ export { zodqlField } from "./ZodqlFieldBuilder.js";
 
 // Client exports
 export {
-  buildAxiosZodqlClient,
-  createResponseSchema,
+  buildZodqlClient,
   type ZodqlClient,
-  type ZodqlClientBuildOptions,
-  type AxiosZodqlClientBuilder,
+  type ZodqlClientBuilder,
+  type HttpClient,
+  type ResponseData,
 } from "./client.js";
 
 // Utility exports
