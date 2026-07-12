@@ -2,13 +2,6 @@ import z from "zod";
 import type { QueryVariable, GraphqlQuery } from "./types.js";
 import type { SetOptional } from "type-fest";
 
-type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
-  T,
-  {
-    [Key in keyof T]: undefined extends T[Key] ? Key : never;
-  }[keyof T]
->;
-
 /**
  * An HTTP client exposing a Promise-based `post` method that resolves to both the raw
  * response and a `json()` accessor for its already-parsed body, e.g. a thin wrapper around `fetch`.
@@ -79,8 +72,9 @@ export function buildZodqlClient<Response = unknown, RequestConfig = unknown>(
 ): ZodqlClient<Response, RequestConfig> {
   return new ZodqlClientImplementation<Response, RequestConfig>(baseClient);
 }
+buildZodqlClient satisfies ZodqlClientBuilder; // ensure the function signature matches the builder type
 
-export class ZodqlClientImplementation<Response = unknown, RequestConfig = unknown> implements ZodqlClient<
+class ZodqlClientImplementation<Response = unknown, RequestConfig = unknown> implements ZodqlClient<
   Response,
   RequestConfig
 > {
@@ -133,3 +127,10 @@ function createResponseDataSchema<Schema extends z.ZodObject>(dataSchema: Schema
   });
 }
 type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;
+
+type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
+  T,
+  {
+    [Key in keyof T]: undefined extends T[Key] ? Key : never;
+  }[keyof T]
+>;
