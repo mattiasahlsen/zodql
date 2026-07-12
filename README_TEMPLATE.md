@@ -22,7 +22,7 @@ pnpm add zodql zod
 
 ## Quick Start
 
-The example below uses the global `fetch`, but any client whose `post` method resolves to a response with a `.json()` method works:
+The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
 
 ```typescript
 import { zodql, buildZodqlClient } from "zodql";
@@ -44,12 +44,15 @@ const query = zodql("query", userSchema)
 
 // Create a client
 const client = buildZodqlClient({
-  post: (url, data) =>
-    fetch("https://api.example.com/graphql", {
+  post: async (url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify(data),
-    }),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
 });
 
 // Execute the query

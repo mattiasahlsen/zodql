@@ -10,8 +10,8 @@ type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
 >;
 
 /**
- * An HTTP client exposing a Promise-based `post` method whose resolved response
- * exposes a `.json()` method to read the parsed response body, e.g. the global `fetch`.
+ * An HTTP client exposing a Promise-based `post` method that resolves to both the raw
+ * response and a `json()` accessor for its already-parsed body, e.g. a thin wrapper around `fetch`.
  */
 export interface HttpClient<Response = unknown, RequestConfig = unknown> {
   post(url: string, data: unknown, config?: RequestConfig): Promise<{ response: Response; json: () => unknown }>;
@@ -44,12 +44,12 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
  * parses and returns the response's `data` field against the query's schema —
  * GraphQL errors returned in a 200 response body are not thrown and must be
- * checked by the caller by reading `response.json()` directly (see {@link createResponseSchema}).
+ * inspected by the caller via the returned `response` (see {@link createResponseSchema}).
  * The returned promise rejects (without making a request) if a variable's
  * value fails its Zod schema, e.g. a required variable that was omitted.
  *
- * `baseClient` only needs to satisfy {@link HttpClient}: a `post` method whose
- * resolved response exposes a `.json()` method to read the parsed response body.
+ * `baseClient` only needs to satisfy {@link HttpClient}: a `post` method that resolves to
+ * `{ response, json }`, where `json()` returns the already-parsed response body.
  *
  * @param {HttpClient<Response, RequestConfig>} baseClient - An HTTP client to use for GraphQL requests
  * @returns {ZodqlClient<Response, RequestConfig>} A ZodqlClient instance that executes GraphQL operations
@@ -59,12 +59,15 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * import { buildZodqlClient } from 'zodql';
  *
  * const client = buildZodqlClient({
- *   post: (url, data) =>
- *     fetch('https://api.example.com/graphql', {
+ *   post: async (url, data) => {
+ *     const response = await fetch('https://api.example.com/graphql', {
  *       method: 'POST',
  *       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
  *       body: JSON.stringify(data),
- *     }),
+ *     });
+ *     const body = await response.json();
+ *     return { response, json: () => body };
+ *   },
  * });
  *
  * const { parseResponse } = await client.request(query, { userId: '123' });

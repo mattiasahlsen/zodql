@@ -22,7 +22,7 @@ pnpm add zodql zod
 
 ## Quick Start
 
-The example below uses the global `fetch`, but any client whose `post` method resolves to a response with a `.json()` method works:
+The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
 
 ```typescript
 import { zodql, buildZodqlClient } from "zodql";
@@ -44,12 +44,15 @@ const query = zodql("query", userSchema)
 
 // Create a client
 const client = buildZodqlClient({
-  post: (url, data) =>
-    fetch("https://api.example.com/graphql", {
+  post: async (url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify(data),
-    }),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
 });
 
 // Execute the query
@@ -153,11 +156,11 @@ configured <code>baseURL</code> and headers (e.g. auth) are used as-is; every re
 is a <code>POST</code> with a <code>{ query, variables }</code> JSON body. <code>parseResponse()</code> only
 parses and returns the response&#39;s <code>data</code> field against the query&#39;s schema —
 GraphQL errors returned in a 200 response body are not thrown and must be
-checked by the caller by reading <code>response.json()</code> directly (see <a href="#createResponseSchema">createResponseSchema</a>).
+inspected by the caller via the returned <code>response</code> (see <a href="#createResponseSchema">createResponseSchema</a>).
 The returned promise rejects (without making a request) if a variable&#39;s
 value fails its Zod schema, e.g. a required variable that was omitted.</p>
-<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method whose
-resolved response exposes a <code>.json()</code> method to read the parsed response body.</p>
+<p><code>baseClient</code> only needs to satisfy <a href="HttpClient">HttpClient</a>: a <code>post</code> method that resolves to
+<code>{ response, json }</code>, where <code>json()</code> returns the already-parsed response body.</p>
 </dd>
 <dt><a href="#createResponseSchema">createResponseSchema(dataSchema, options)</a> ⇒</dt>
 <dd><p>Creates a Zod schema for a GraphQL response, i.e. <code>{ data, extensions?, errors? }</code>
@@ -380,12 +383,12 @@ configured `baseURL` and headers (e.g. auth) are used as-is; every request
 is a `POST` with a `{ query, variables }` JSON body. `parseResponse()` only
 parses and returns the response's `data` field against the query's schema —
 GraphQL errors returned in a 200 response body are not thrown and must be
-checked by the caller by reading `response.json()` directly (see [createResponseSchema](#createResponseSchema)).
+inspected by the caller via the returned `response` (see [createResponseSchema](#createResponseSchema)).
 The returned promise rejects (without making a request) if a variable's
 value fails its Zod schema, e.g. a required variable that was omitted.
 
-`baseClient` only needs to satisfy [HttpClient](HttpClient): a `post` method whose
-resolved response exposes a `.json()` method to read the parsed response body.
+`baseClient` only needs to satisfy [HttpClient](HttpClient): a `post` method that resolves to
+`{ response, json }`, where `json()` returns the already-parsed response body.
 
 **Kind**: global function  
 **Returns**: <code>ZodqlClient.&lt;Response, RequestConfig&gt;</code> - A ZodqlClient instance that executes GraphQL operations  
@@ -399,12 +402,15 @@ resolved response exposes a `.json()` method to read the parsed response body.
 import { buildZodqlClient } from 'zodql';
 
 const client = buildZodqlClient({
-  post: (url, data) =>
-    fetch('https://api.example.com/graphql', {
+  post: async (url, data) => {
+    const response = await fetch('https://api.example.com/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
       body: JSON.stringify(data),
-    }),
+    });
+    const body = await response.json();
+    return { response, json: () => body };
+  },
 });
 
 const { parseResponse } = await client.request(query, { userId: '123' });
