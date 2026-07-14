@@ -10,6 +10,8 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 - 🎯 **Builder pattern** - Fluent API for constructing complex queries
 - 🔌 **Bring your own HTTP client** - Works with `fetch` or any client whose response exposes a `.json()` method, with no hard dependency on a particular HTTP library
 
+All examples in this README are complete, compiling TypeScript files from [`examples/readme/`](./examples/readme), and every GraphQL snippet is generated from the corresponding example's actual compiled query.
+
 ## Installation
 
 ```bash
@@ -22,29 +24,34 @@ pnpm add @mattiasahlsen/zodql zod
 
 ## Quick Start
 
-The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
+Describe your query with a Zod schema, compile it to GraphQL, and execute it through a client built on any HTTP transport:
 
 ```typescript
-import { zodql, buildZodqlClient } from "@mattiasahlsen/zodql";
+import { zodql, zodqlField, buildZodqlClient } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
-// Define your schema
+// Describe the query with a Zod schema
 const userSchema = z.object({
-  user: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-  }),
+  user: zodqlField()
+    .withArguments({ id: "$userId" })
+    .toSchema(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+      })
+    ),
 });
 
-// Create a query
-const query = zodql("query", userSchema)
+// Compile it to a GraphQL query
+const userQuery = zodql("query", userSchema)
   .defineVariables({ userId: { typeName: "ID!", schema: z.string() } })
   .compile();
+export default userQuery;
 
-// Create a client
+// Create a client from any HTTP transport whose `post` resolves to `{ response, json }`
 const client = buildZodqlClient({
-  post: async (url, data) => {
+  post: async (_url, data) => {
     const response = await fetch("https://api.example.com/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
@@ -54,10 +61,540 @@ const client = buildZodqlClient({
   },
 });
 
-// Execute the query
-const { parseResponse } = await client.request(query, { userId: "123" });
-const { data } = await parseResponse();
+// Execute the query; the response is validated against the schema
+export async function fetchUser() {
+  const { parseResponse } = await client.request(userQuery, { userId: "123" });
+  const { data } = await parseResponse();
+  return data.user; // Typed as { id: string; name: string; email: string }
+}
 ```
+
+The compiled GraphQL query:
+
+```graphql
+query ($userId: ID!) {
+  user (id: $userId) {
+    id
+    name
+    email
+  }
+}
+```
+
+## Client
+
+`buildZodqlClient()` has no hard dependency on an HTTP library: it wraps any transport whose `post` method resolves to `{ response, json }`, where `json()` returns the already-parsed response body (directly or as a promise).
+
+### Fetch-based client
+
+```typescript
+import { zodql, buildZodqlClient } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+// Wrap `fetch` in the transport contract: `post` resolves to `{ response, json }`,
+// where `json()` returns the parsed response body.
+export const client = buildZodqlClient({
+  post: async (_url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+      body: JSON.stringify(data),
+    });
+    return { response, json: () => response.json() };
+  },
+});
+
+const viewerQuery = zodql("query", z.object({ viewer: z.object({ id: z.string(), name: z.string() }) })).compile();
+
+export async function fetchViewer() {
+  const { parseResponse } = await client.request(viewerQuery, {});
+  const { data } = await parseResponse();
+  return data.viewer;
+}
+```
+
+### Axios-based client
+
+Type the transport as `ZodqlHttpClient<Response, RequestConfig>` to keep the raw response and per-request config fully typed:
+
+```typescript
+import { zodql, buildZodqlClient, type ZodqlHttpClient } from "@mattiasahlsen/zodql";
+import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
+import { z } from "zod";
+
+const axiosInstance = axios.create({
+  baseURL: "https://api.example.com/graphql",
+  headers: { Authorization: "Bearer token" },
+});
+
+// Axios parses the response body itself, so `json()` just returns `response.data`
+const httpClient: ZodqlHttpClient<AxiosResponse, AxiosRequestConfig> = {
+  post: async (url, data, config) => {
+    const response = await axiosInstance.post(url, data, config);
+    return { response, json: () => response.data };
+  },
+};
+
+export const client = buildZodqlClient(httpClient);
+
+const viewerQuery = zodql("query", z.object({ viewer: z.object({ id: z.string(), name: z.string() }) })).compile();
+
+export async function fetchViewer() {
+  // The third argument is passed through to the transport as its request config
+  const { parseResponse } = await client.request(viewerQuery, {}, { timeout: 5000 });
+  const { data } = await parseResponse();
+  return data.viewer;
+}
+```
+
+## Fragments
+
+Fragments let you reuse common field selections. Define one with `zodqlFragment()` (or pass an object literal directly) and attach it to a field with `withFragment()`, `withRequiredFragment()`, or `withUnionFragments()`.
+
+### withFragment
+
+`withFragment()` attaches an optional fragment: the fragment may target a type the actual response doesn't match, so its fields are made optional on the parsed result and are simply absent when the type doesn't match:
+
+```typescript
+import { zodql, zodqlField, zodqlFragment } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const imageFragment = zodqlFragment({
+  name: "ImageFields",
+  on: "Image",
+  schema: z.object({
+    url: z.string(),
+    width: z.number(),
+  }),
+  inline: false,
+});
+
+const mediaQuery = zodql(
+  "query",
+  z.object({
+    media: zodqlField()
+      .withFragment(imageFragment)
+      .toSchema(z.object({ id: z.string() })),
+  })
+).compile();
+export default mediaQuery;
+
+// The fragment's fields are optional on the parsed result
+export type Media = z.infer<typeof mediaQuery.schema>["media"];
+```
+
+Compiled query:
+
+```graphql
+query {
+  media {
+    id
+    ...ImageFields
+  }
+}
+
+fragment ImageFields on Image {
+  url
+  width
+}
+```
+
+### withRequiredFragment
+
+`withRequiredFragment()` is for fragments the field is guaranteed to resolve to: the fragment's fields are merged into the parsed schema as-is and are always expected in the response:
+
+```typescript
+import { zodql, zodqlField, zodqlFragment } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const auditFragment = zodqlFragment({
+  name: "AuditFields",
+  on: "Node",
+  schema: z.object({
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+  inline: false,
+});
+
+const nodeQuery = zodql(
+  "query",
+  z.object({
+    node: zodqlField()
+      .withRequiredFragment(auditFragment)
+      .toSchema(z.object({ id: z.string() })),
+  })
+).compile();
+export default nodeQuery;
+
+// The fragment's fields are required on the parsed result
+export type Node = z.infer<typeof nodeQuery.schema>["node"];
+```
+
+Compiled query:
+
+```graphql
+query {
+  node {
+    id
+    ...AuditFields
+  }
+}
+
+fragment AuditFields on Node {
+  createdAt
+  updatedAt
+}
+```
+
+### withUnionFragments
+
+`withUnionFragments()` models a union or interface field as a discriminated union. A `__typename` selection is added to the query, and at parse time its value decides which fragment schema applies — fields belonging to non-matching fragments are stripped. With `requireOne: true`, parsing fails when `__typename` matches none of the fragments; with `requireOne: false`, unknown typenames are accepted with only the base fields:
+
+```typescript
+import { zodql, zodqlField, zodqlFragment } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const imageFragment = zodqlFragment({
+  name: "ImageFields",
+  on: "Image",
+  schema: z.object({ url: z.string(), width: z.number() }),
+  inline: false,
+});
+
+const videoFragment = zodqlFragment({
+  name: "VideoFields",
+  on: "Video",
+  schema: z.object({ url: z.string(), duration: z.number() }),
+  inline: false,
+});
+
+const mediaQuery = zodql(
+  "query",
+  z.object({
+    media: zodqlField()
+      .withUnionFragments([imageFragment, videoFragment], { requireOne: true })
+      .toSchema(z.object({ id: z.string() })),
+  })
+).compile();
+export default mediaQuery;
+
+// The parsed result is a discriminated union on `__typename`
+export type Media = z.infer<typeof mediaQuery.schema>["media"];
+```
+
+Compiled query:
+
+```graphql
+query {
+  media {
+    id
+    __typename
+    ...ImageFields
+    ...VideoFields
+  }
+}
+
+fragment ImageFields on Image {
+  url
+  width
+}
+
+fragment VideoFields on Video {
+  url
+  duration
+}
+```
+
+### Inline Fragment
+
+A fragment marked `inline: true` is spread directly into the parent selection as `... on Type { ... }`, with no standalone fragment definition:
+
+```typescript
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+export default zodql(
+  "query",
+  z.object({
+    node: zodqlField()
+      .withFragment({
+        on: "User",
+        inline: true,
+        schema: z.object({ name: z.string(), email: z.string() }),
+      })
+      .toSchema(z.object({ id: z.string() })),
+  })
+).compile();
+```
+
+Compiled query:
+
+```graphql
+query {
+  node {
+    id
+    ... on User {
+      name
+      email
+    }
+  }
+}
+```
+
+### Non-Inline Fragment
+
+A named fragment (`inline: false`) is emitted once as a standalone `fragment ... on ...` definition and referenced via `...FragmentName` wherever it's attached:
+
+```typescript
+import { zodql, zodqlField, zodqlFragment } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+// The fragment is emitted once and referenced from both fields below
+const userFragment = zodqlFragment({
+  name: "UserFields",
+  on: "User",
+  schema: z.object({ id: z.string(), name: z.string() }),
+  inline: false,
+});
+
+export default zodql(
+  "query",
+  z.object({
+    post: z.object({
+      title: z.string(),
+      author: zodqlField().withRequiredFragment(userFragment).toSchema(z.object({})),
+      reviewer: zodqlField().withRequiredFragment(userFragment).toSchema(z.object({})),
+    }),
+  })
+).compile();
+```
+
+Compiled query:
+
+```graphql
+query {
+  post {
+    title
+    author {
+      ...UserFields
+    }
+    reviewer {
+      ...UserFields
+    }
+  }
+}
+
+fragment UserFields on User {
+  id
+  name
+}
+```
+
+## Field Arguments
+
+`withArguments()` adds GraphQL arguments to a field. Argument values are raw GraphQL source: reference a query variable with `"$variableName"`, or pass literals like `"10"` or `'"active"'`:
+
+```typescript
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+export default zodql(
+  "query",
+  z.object({
+    users: z.array(
+      zodqlField()
+        .withArguments({ status: '"active"', first: "10" })
+        .toSchema(z.object({ id: z.string(), name: z.string() }))
+    ),
+  })
+).compile();
+```
+
+Compiled query:
+
+```graphql
+query {
+  users (status: "active", first: 10) {
+    id
+    name
+  }
+}
+```
+
+## Query Variables
+
+Declare variables with `defineVariables()`: each variable gets a GraphQL type name and a Zod schema, which can be arbitrarily complex (e.g. a nested input object). Values passed to `request()` are validated and parsed by their schemas before the request is sent — defaults, coercion, and transforms all apply, and a variable that parses to `undefined` is omitted from the request body entirely:
+
+```typescript
+import { zodql, zodqlField, buildZodqlClient } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const createUserInputSchema = z.object({
+  name: z.string(),
+  email: z.email(),
+  address: z.object({ city: z.string(), country: z.string() }),
+  tags: z.array(z.string()),
+});
+
+const createUserMutation = zodql(
+  "mutation",
+  z.object({
+    createUser: zodqlField()
+      .withArguments({ input: "$input" })
+      .toSchema(z.object({ id: z.string(), name: z.string() })),
+  })
+)
+  .defineVariables({ input: { typeName: "CreateUserInput!", schema: createUserInputSchema } })
+  .compile();
+export default createUserMutation;
+
+const client = buildZodqlClient({
+  post: async (_url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return { response, json: () => response.json() };
+  },
+});
+
+export async function createUser() {
+  // The variable values are type-checked and validated against their schemas
+  const { parseResponse } = await client.request(createUserMutation, {
+    input: {
+      name: "John Doe",
+      email: "john@example.com",
+      address: { city: "Stockholm", country: "Sweden" },
+      tags: ["developer", "typescript"],
+    },
+  });
+  const { data } = await parseResponse();
+  return data.createUser;
+}
+```
+
+Compiled query:
+
+```graphql
+mutation ($input: CreateUserInput!) {
+  createUser (input: $input) {
+    id
+    name
+  }
+}
+```
+
+## Response Validation
+
+`parseResponse()` validates the response's `data` field against the query's schema and resolves to `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically — check them yourself:
+
+```typescript
+import { zodql, buildZodqlClient } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const viewerQuery = zodql("query", z.object({ viewer: z.object({ id: z.string(), name: z.string() }) })).compile();
+
+const client = buildZodqlClient({
+  post: async (_url, data) => {
+    const response = await fetch("https://api.example.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return { response, json: () => response.json() };
+  },
+});
+
+export async function fetchViewer() {
+  const { parseResponse } = await client.request(viewerQuery, {});
+
+  // GraphQL errors arrive in a 200 response body and are never thrown — check them yourself
+  const { data, errors } = await parseResponse();
+
+  if (errors) {
+    throw new Error(`GraphQL errors: ${JSON.stringify(errors)}`);
+  }
+
+  return data.viewer; // Validated: { id: string; name: string }
+}
+```
+
+## Field Aliases
+
+`asAliasFor()` queries the same field multiple times under different aliases, e.g. with different arguments:
+
+```typescript
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const userFields = z.object({ id: z.string(), name: z.string() });
+
+export default zodql(
+  "query",
+  z.object({
+    activeUsers: z.array(zodqlField().asAliasFor("users").withArguments({ status: '"active"' }).toSchema(userFields)),
+    inactiveUsers: z.array(
+      zodqlField().asAliasFor("users").withArguments({ status: '"inactive"' }).toSchema(userFields)
+    ),
+  })
+).compile();
+```
+
+Compiled query:
+
+```graphql
+query {
+  activeUsers: users (status: "active") {
+    id
+    name
+  }
+  inactiveUsers: users (status: "inactive") {
+    id
+    name
+  }
+}
+```
+
+## TypeScript Support
+
+This library is written in TypeScript and provides full type inference for all operations — the response type is inferred from the query's Zod schema, and `client.request()` type-checks the variable values you pass:
+
+```typescript
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+
+const userQuery = zodql(
+  "query",
+  z.object({
+    user: zodqlField()
+      .withArguments({ id: "$userId" })
+      .toSchema(z.object({ id: z.string(), name: z.string() })),
+  })
+)
+  .defineVariables({ userId: { typeName: "ID!", schema: z.string() } })
+  .compile();
+
+// The compiled query carries its GraphQL source as a plain string...
+export const queryString: string = userQuery.queryString;
+
+// ...and the response type is inferred straight from the query's schema
+export type UserResponse = z.infer<typeof userQuery.schema>;
+// => { user: { id: string; name: string } }
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT
+
+## Author
+
+Mattias Ahlsén - mattias.ahlsen@gmail.com
 
 ## API Documentation
 
@@ -664,257 +1201,3 @@ resolved by `parseResponse()`. `data` is validated against the query's schema;
 ##### Schema
 
 `Schema` *extends* `z.ZodObject`
-
-## Advanced Usage
-
-### Complex Input Types
-
-Build queries or mutations with complex input types:
-
-```typescript
-import { zodql, zodqlField } from "@mattiasahlsen/zodql";
-import { z } from "zod";
-
-// Define complex input schema
-const createUserInputSchema = z.object({
-  name: z.string(),
-  email: z.string().email(),
-  age: z.number().optional(),
-  address: z.object({
-    street: z.string(),
-    city: z.string(),
-    country: z.string(),
-  }),
-  tags: z.array(z.string()),
-});
-
-// Create mutation with complex input
-const createUserSchema = z.object({
-  createUser: zodqlField()
-    .withArguments({ input: "$input" })
-    .toSchema(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        email: z.string(),
-      })
-    ),
-});
-
-const mutation = zodql("mutation", createUserSchema)
-  .defineVariables({
-    input: {
-      typeName: "CreateUserInput!",
-      schema: createUserInputSchema,
-    },
-  })
-  .compile();
-
-// Execute with complex input
-const { parseResponse } = await client.request(mutation, {
-  input: {
-    name: "John Doe",
-    email: "john@example.com",
-    age: 30,
-    address: {
-      street: "123 Main St",
-      city: "Stockholm",
-      country: "Sweden",
-    },
-    tags: ["developer", "typescript"],
-  },
-});
-const { data } = await parseResponse();
-```
-
-### Using Fragments
-
-Fragments allow you to reuse common field selections:
-
-```typescript
-import { zodqlFragment, zodqlField } from "@mattiasahlsen/zodql";
-import { z } from "zod";
-
-const userFragment = zodqlFragment({
-  name: "UserFields",
-  on: "User",
-  schema: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-  }),
-  inline: false,
-});
-
-const postSchema = z.object({
-  post: zodqlField()
-    .withFragment(userFragment)
-    .toSchema(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        author: z.object({}), // Fragment fields will be added
-      })
-    ),
-});
-```
-
-### Optional vs Required Fragments
-
-Use `withFragment()` for optional fragments and `withRequiredFragment()` for required ones:
-
-```typescript
-import { zodqlFragment, zodqlField } from "@mattiasahlsen/zodql";
-import { z } from "zod";
-
-// Define fragments for different node types
-const imageFragment = zodqlFragment({
-  name: "ImageFields",
-  on: "Image",
-  schema: z.object({
-    url: z.string(),
-    width: z.number(),
-    height: z.number(),
-  }),
-  inline: false,
-});
-
-const videoFragment = zodqlFragment({
-  name: "VideoFields",
-  on: "Video",
-  schema: z.object({
-    url: z.string(),
-    duration: z.number(),
-  }),
-  inline: false,
-});
-
-const baseNodeFragment = zodqlFragment({
-  name: "BaseNodeFields",
-  on: "Node",
-  schema: z.object({
-    __typename: z.string(),
-    createdAt: z.string(),
-  }),
-  inline: false,
-});
-
-const mediaQuerySchema = z.object({
-  // Field with multiple OPTIONAL fragments - tries to parse each, fields only present if type matches
-  media: zodqlField()
-    .withFragment(imageFragment) // Optional: only parsed if media is an Image
-    .withFragment(videoFragment) // Optional: only parsed if media is a Video
-    .toSchema(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        // imageFragment fields (url, width, height) will be present if media is Image type
-        // videoFragment fields (url, duration) will be present if media is Video type
-      })
-    ),
-
-  // Field with REQUIRED fragment - fields are always expected
-  node: zodqlField()
-    .withRequiredFragment(baseNodeFragment) // Required: these fields must always be present
-    .toSchema(
-      z.object({
-        id: z.string(),
-        // baseNodeFragment fields (__typename, createdAt) are REQUIRED and always present
-      })
-    ),
-});
-
-// The difference:
-// - withFragment(): Fields are conditionally added based on the actual GraphQL type returned
-// - withRequiredFragment(): Fields are merged into the base schema and always expected
-```
-
-### Field Arguments
-
-Add arguments to GraphQL fields:
-
-```typescript
-import { zodqlField } from "@mattiasahlsen/zodql";
-import { z } from "zod";
-
-const userField = zodqlField()
-  .withArguments({ id: "$userId" })
-  .toSchema(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-    })
-  );
-```
-
-### Field Aliases
-
-Query the same field multiple times with different arguments:
-
-```typescript
-import { zodqlField } from "@mattiasahlsen/zodql";
-import { z } from "zod";
-
-const schema = z.object({
-  activeUsers: zodqlField()
-    .asAliasFor("users")
-    .withArguments({ status: '"active"' })
-    .toSchema(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-      })
-    ),
-  inactiveUsers: zodqlField()
-    .asAliasFor("users")
-    .withArguments({ status: '"inactive"' })
-    .toSchema(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-      })
-    ),
-});
-```
-
-### Response Validation
-
-`parseResponse()` validates the response's `data` field against the query's schema and
-resolves to `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
-unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
-— check them yourself:
-
-```typescript
-const { parseResponse } = await client.request(query, { userId: "123" });
-const { data, errors } = await parseResponse();
-
-if (errors) {
-  // handle GraphQL errors returned alongside `data`
-}
-```
-
-## TypeScript Support
-
-This library is written in TypeScript and provides full type inference for all operations:
-
-```typescript
-const query = zodql("query", userSchema).compile();
-
-// queryString is typed as string
-const { queryString, schema, variables } = query;
-
-// Inferred response type based on schema
-type UserResponse = z.infer<typeof schema>;
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-MIT
-
-## Author
-
-Mattias Ahlsén - mattias.ahlsen@gmail.com
