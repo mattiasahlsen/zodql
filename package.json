@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "example:github-list-files": "tsx examples/github-list-files/main.ts",
+    "example:github-list-files": "tsx --tsconfig examples/tsconfig.json examples/github-list-files/main.ts",
     "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript && pnpm run verify:docs",
     "build": "pnpm run build:lint && pnpm run build:format && pnpm run build:typescript && pnpm run build:docs",
     "test": "vitest run --coverage",
@@ -24,7 +24,7 @@
     "build:docs": "node scripts/generate-readme.js",
     "verify:docs": "node scripts/verify-readme.js",
     "build:typescript": "rimraf ./dist && tsc -p ./tsconfig.build.json",
-    "verify:typescript": "tsc --noEmit",
+    "verify:typescript": "tsc --noEmit && tsc -p ./examples",
     "build:lint": "eslint 'src/**/*.ts' --fix",
     "verify:lint": "eslint 'src/**/*.ts'",
     "build:format": "prettier --write '**/*.ts'",
