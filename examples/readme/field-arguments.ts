@@ -1,7 +1,7 @@
 import { zodql, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
-export const usersQuery = zodql(
+export default zodql(
   "query",
   z.object({
     users: z.array(

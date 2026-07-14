@@ -9,7 +9,7 @@ const userFragment = zodqlFragment({
   inline: false,
 });
 
-export const postQuery = zodql(
+export default zodql(
   "query",
   z.object({
     post: z.object({

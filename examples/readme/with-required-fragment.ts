@@ -11,7 +11,7 @@ const auditFragment = zodqlFragment({
   inline: false,
 });
 
-export const nodeQuery = zodql(
+const nodeQuery = zodql(
   "query",
   z.object({
     node: zodqlField()
@@ -19,6 +19,7 @@ export const nodeQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default nodeQuery;
 
 // The fragment's fields are required on the parsed result
 export type Node = z.infer<typeof nodeQuery.schema>["node"];

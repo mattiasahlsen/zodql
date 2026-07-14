@@ -15,7 +15,7 @@ const videoFragment = zodqlFragment({
   inline: false,
 });
 
-export const mediaQuery = zodql(
+const mediaQuery = zodql(
   "query",
   z.object({
     media: zodqlField()
@@ -23,6 +23,7 @@ export const mediaQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default mediaQuery;
 
 // The parsed result is a discriminated union on `__typename`
 export type Media = z.infer<typeof mediaQuery.schema>["media"];

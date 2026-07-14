@@ -15,9 +15,10 @@ const userSchema = z.object({
 });
 
 // Compile it to a GraphQL query
-export const userQuery = zodql("query", userSchema)
+const userQuery = zodql("query", userSchema)
   .defineVariables({ userId: { typeName: "ID!", schema: z.string() } })
   .compile();
+export default userQuery;
 
 // Create a client from any HTTP transport whose `post` resolves to `{ response, json }`
 const client = buildZodqlClient({

@@ -8,7 +8,7 @@ const createUserInputSchema = z.object({
   tags: z.array(z.string()),
 });
 
-export const createUserMutation = zodql(
+const createUserMutation = zodql(
   "mutation",
   z.object({
     createUser: zodqlField()
@@ -18,6 +18,7 @@ export const createUserMutation = zodql(
 )
   .defineVariables({ input: { typeName: "CreateUserInput!", schema: createUserInputSchema } })
   .compile();
+export default createUserMutation;
 
 const client = buildZodqlClient({
   post: async (_url, data) => {

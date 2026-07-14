@@ -1,15 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S npx tsx --tsconfig examples/tsconfig.json
 
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { generateReadmeContent } from "./lib/readme-content.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const rootDir = join(__dirname, "..");
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-const expectedReadme = generateReadmeContent(rootDir);
+const expectedReadme = await generateReadmeContent(rootDir);
 const actualReadme = readFileSync(join(rootDir, "README.md"), "utf-8");
 
 if (expectedReadme !== actualReadme) {

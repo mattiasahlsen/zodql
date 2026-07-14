@@ -1,9 +1,10 @@
 import { readFileSync, readdirSync, mkdtempSync, rmSync } from "fs";
-import { execSync, execFileSync } from "child_process";
+import { execSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
+import { pathToFileURL } from "url";
 
-export function generateReadmeContent(rootDir) {
+export async function generateReadmeContent(rootDir: string): Promise<string> {
   const template = readFileSync(join(rootDir, "README_TEMPLATE.md"), "utf-8");
 
   if (!template.includes("{{API_DOCS}}")) {
@@ -33,13 +34,13 @@ export function generateReadmeContent(rootDir) {
   // as `String.prototype.replace` special patterns such as `` $` `` (which would
   // splice in the surrounding template).
   for (const name of exampleNames) {
-    const source = readFileSync(join(rootDir, "examples", "readme", `${name}.ts`), "utf-8").trim();
+    const source = readFileSync(join(rootDir, "examples", "readme", `${name}.ts`), "utf-8");
     readme = readme.replaceAll(`{{EXAMPLE:${name}}}`, () => codeBlock("typescript", source));
   }
 
-  const queryStrings = compileExampleQueries(rootDir, queryNames);
   for (const name of queryNames) {
-    readme = readme.replaceAll(`{{QUERY:${name}}}`, () => codeBlock("graphql", queryStrings[name]));
+    const queryString = await importExampleQuery(rootDir, name);
+    readme = readme.replaceAll(`{{QUERY:${name}}}`, () => codeBlock("graphql", queryString));
   }
 
   console.log("Generating API documentation...");
@@ -48,44 +49,44 @@ export function generateReadmeContent(rootDir) {
   return readme.replace("{{API_DOCS}}", () => apiDocs);
 }
 
-function collectPlaceholderNames(template, kind) {
-  const names = new Set();
+function collectPlaceholderNames(template: string, kind: "EXAMPLE" | "QUERY"): string[] {
+  const names = new Set<string>();
   for (const match of template.matchAll(new RegExp(`\\{\\{${kind}:([\\w-]+)\\}\\}`, "g"))) {
-    names.add(match[1]);
+    names.add(match[1]!);
   }
   return [...names];
 }
 
-function codeBlock(language, content) {
+function codeBlock(language: string, content: string): string {
   return `\`\`\`${language}\n${content.trim()}\n\`\`\``;
 }
 
-// Imports each named example from examples/readme/ and returns a map from
-// example name to the query string of its exported compiled query. Runs through
-// tsx with the examples tsconfig so `@mattiasahlsen/zodql` resolves to the
-// library source (no prior build needed).
-function compileExampleQueries(rootDir, names) {
-  if (names.length === 0) return {};
-  console.log("Compiling example queries...");
-  const stdout = execFileSync(
-    "npx",
-    [
-      "--no-install",
-      "tsx",
-      "--tsconfig",
-      "examples/tsconfig.json",
-      "examples/print-readme-queries.ts",
-      ...names,
-    ],
-    { cwd: rootDir, encoding: "utf-8" }
-  );
-  return JSON.parse(stdout);
+// Imports the example module and returns the query string of its
+// default-exported compiled query. This file must be run through tsx with the
+// examples tsconfig (see the build:docs / verify:docs scripts) so the example's
+// `@mattiasahlsen/zodql` import resolves to the library source.
+async function importExampleQuery(rootDir: string, name: string): Promise<string> {
+  const moduleUrl = pathToFileURL(join(rootDir, "examples", "readme", `${name}.ts`)).href;
+  const exampleModule = (await import(moduleUrl)) as { default?: unknown };
+
+  const compiledQuery = exampleModule.default;
+  if (
+    typeof compiledQuery !== "object" ||
+    compiledQuery === null ||
+    typeof (compiledQuery as { queryString?: unknown }).queryString !== "string"
+  ) {
+    throw new Error(
+      `examples/readme/${name}.ts is referenced by {{QUERY:${name}}}, so it must ` +
+        `default-export its compiled query (an object with a \`queryString\` string).`
+    );
+  }
+  return (compiledQuery as { queryString: string }).queryString;
 }
 
 // Runs TypeDoc (configured by `typedoc.json`) into a throwaway directory and
 // returns the generated Markdown. TypeDoc only writes to disk, so it's pointed
 // at a temp dir that is read back and removed rather than left in the tree.
-function generateApiDocs(rootDir) {
+function generateApiDocs(rootDir: string): string {
   const outDir = mkdtempSync(join(tmpdir(), "zodql-typedoc-"));
   try {
     execSync(`npx --no-install typedoc --out "${outDir}"`, {

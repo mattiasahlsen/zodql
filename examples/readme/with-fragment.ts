@@ -11,7 +11,7 @@ const imageFragment = zodqlFragment({
   inline: false,
 });
 
-export const mediaQuery = zodql(
+const mediaQuery = zodql(
   "query",
   z.object({
     media: zodqlField()
@@ -19,6 +19,7 @@ export const mediaQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default mediaQuery;
 
 // The fragment's fields are optional on the parsed result
 export type Media = z.infer<typeof mediaQuery.schema>["media"];

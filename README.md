@@ -44,9 +44,10 @@ const userSchema = z.object({
 });
 
 // Compile it to a GraphQL query
-export const userQuery = zodql("query", userSchema)
+const userQuery = zodql("query", userSchema)
   .defineVariables({ userId: { typeName: "ID!", schema: z.string() } })
   .compile();
+export default userQuery;
 
 // Create a client from any HTTP transport whose `post` resolves to `{ response, json }`
 const client = buildZodqlClient({
@@ -168,7 +169,7 @@ const imageFragment = zodqlFragment({
   inline: false,
 });
 
-export const mediaQuery = zodql(
+const mediaQuery = zodql(
   "query",
   z.object({
     media: zodqlField()
@@ -176,6 +177,7 @@ export const mediaQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default mediaQuery;
 
 // The fragment's fields are optional on the parsed result
 export type Media = z.infer<typeof mediaQuery.schema>["media"];
@@ -215,7 +217,7 @@ const auditFragment = zodqlFragment({
   inline: false,
 });
 
-export const nodeQuery = zodql(
+const nodeQuery = zodql(
   "query",
   z.object({
     node: zodqlField()
@@ -223,6 +225,7 @@ export const nodeQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default nodeQuery;
 
 // The fragment's fields are required on the parsed result
 export type Node = z.infer<typeof nodeQuery.schema>["node"];
@@ -266,7 +269,7 @@ const videoFragment = zodqlFragment({
   inline: false,
 });
 
-export const mediaQuery = zodql(
+const mediaQuery = zodql(
   "query",
   z.object({
     media: zodqlField()
@@ -274,6 +277,7 @@ export const mediaQuery = zodql(
       .toSchema(z.object({ id: z.string() })),
   })
 ).compile();
+export default mediaQuery;
 
 // The parsed result is a discriminated union on `__typename`
 export type Media = z.infer<typeof mediaQuery.schema>["media"];
@@ -310,7 +314,7 @@ A fragment marked `inline: true` is spread directly into the parent selection as
 import { zodql, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
-export const nodeQuery = zodql(
+export default zodql(
   "query",
   z.object({
     node: zodqlField()
@@ -354,7 +358,7 @@ const userFragment = zodqlFragment({
   inline: false,
 });
 
-export const postQuery = zodql(
+export default zodql(
   "query",
   z.object({
     post: z.object({
@@ -395,7 +399,7 @@ fragment UserFields on User {
 import { zodql, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
-export const usersQuery = zodql(
+export default zodql(
   "query",
   z.object({
     users: z.array(
@@ -433,7 +437,7 @@ const createUserInputSchema = z.object({
   tags: z.array(z.string()),
 });
 
-export const createUserMutation = zodql(
+const createUserMutation = zodql(
   "mutation",
   z.object({
     createUser: zodqlField()
@@ -443,6 +447,7 @@ export const createUserMutation = zodql(
 )
   .defineVariables({ input: { typeName: "CreateUserInput!", schema: createUserInputSchema } })
   .compile();
+export default createUserMutation;
 
 const client = buildZodqlClient({
   post: async (_url, data) => {
@@ -526,7 +531,7 @@ import { z } from "zod";
 
 const userFields = z.object({ id: z.string(), name: z.string() });
 
-export const usersQuery = zodql(
+export default zodql(
   "query",
   z.object({
     activeUsers: z.array(zodqlField().asAliasFor("users").withArguments({ status: '"active"' }).toSchema(userFields)),

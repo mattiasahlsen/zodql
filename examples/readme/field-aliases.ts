@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const userFields = z.object({ id: z.string(), name: z.string() });
 
-export const usersQuery = zodql(
+export default zodql(
   "query",
   z.object({
     activeUsers: z.array(zodqlField().asAliasFor("users").withArguments({ status: '"active"' }).toSchema(userFields)),
