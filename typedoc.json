@@ -9,6 +9,7 @@
   "hidePageHeader": true,
   "hidePageTitle": true,
   "outputFileStrategy": "modules",
+  "groupOrder": ["Query Building", "Functions", "Interfaces", "Type Aliases", "*"],
   "intentionallyNotExported": [
     "ZodqlBuilder",
     "ZodqlFieldBuilder",

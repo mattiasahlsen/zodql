@@ -332,6 +332,8 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements 
  *
  * @returns A new ZodqlFieldBuilder instance for configuring field properties
  *
+ * @group Query Building
+ *
  * @example
  * ```typescript
  * import { zodqlField } from 'zodql';

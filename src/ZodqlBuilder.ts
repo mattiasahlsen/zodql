@@ -252,6 +252,8 @@ export type ZodqlOptions = {
  * @param options - Optional settings for the operation. See {@link ZodqlOptions} for the available fields.
  * @returns A ZodqlBuilder instance for chaining operations
  *
+ * @group Query Building
+ *
  * @example
  * ```typescript
  * import { zodql, zodqlField } from 'zodql';
@@ -298,6 +300,8 @@ export function zodql<Schema extends z.ZodObject>(
  * @param fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
  * @returns The validated fragment definition for use in queries
  * @throws If the fragment's schema shape is an empty object
+ *
+ * @group Query Building
  *
  * @example
  * ```typescript
