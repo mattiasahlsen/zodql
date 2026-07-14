@@ -50,14 +50,13 @@ const client = buildZodqlClient({
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify(data),
     });
-    const body = await response.json();
-    return { response, json: () => body };
+    return { response, json: () => response.json() };
   },
 });
 
 // Execute the query
 const { parseResponse } = await client.request(query, { userId: "123" });
-const { data } = parseResponse();
+const { data } = await parseResponse();
 ```
 
 ## API Documentation
@@ -267,7 +266,8 @@ making a request) if a variable's value fails its Zod schema, e.g. a required va
 that was omitted.
 
 `baseClient` only needs to satisfy [ZodqlHttpClient](#zodqlhttpclient): a `post` method that resolves to
-`{ response, json }`, where `json()` returns the already-parsed response body.
+`{ response, json }`, where `json()` returns the parsed response body, either directly or
+as a promise.
 
 #### Type Parameters
 
@@ -305,13 +305,12 @@ const client = buildZodqlClient({
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token123' },
       body: JSON.stringify(data),
     });
-    const body = await response.json();
-    return { response, json: () => body };
+    return { response, json: () => response.json() };
   },
 });
 
 const { parseResponse } = await client.request(query, { userId: '123' });
-const { data, errors } = parseResponse();
+const { data, errors } = await parseResponse();
 ```
 
 ***
@@ -403,14 +402,14 @@ transport.
 
 ##### request()
 
-> **request**\<`Schema`, `Variables`\>(`query`, `args`, `requestConfig?`): `Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+> **request**\<`Schema`, `Variables`\>(`query`, `args`, `requestConfig?`): `Promise`\<\{ `parseResponse`: () => `Promise`\<\{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: ...; errors: ...; extensions: ... \}\[k\] extends OptionalOutSchema ? never : k\]: (...)\[(...)\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: ...; errors: ...; extensions: ... \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["output"\] \})\[K\] \}\>; `response`: `Response`; \}\>
 
 Sends a compiled query/mutation. Takes the compiled query
 (`{ queryString, variables, schema }`), an `args` object supplying a value
 for each declared variable (validated and parsed by its Zod schema before
 the request is sent), and an optional transport-specific request config;
 resolves to `{ response, parseResponse }`, where `parseResponse()` validates
-and returns the response body (see [ZodqlResponseData](#zodqlresponsedata)).
+and returns a promise for the response body (see [ZodqlResponseData](#zodqlresponsedata)).
 
 ###### Type Parameters
 
@@ -438,7 +437,7 @@ and returns the response body (see [ZodqlResponseData](#zodqlresponsedata)).
 
 ###### Returns
 
-`Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+`Promise`\<\{ `parseResponse`: () => `Promise`\<\{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: ...; errors: ...; extensions: ... \}\[k\] extends OptionalOutSchema ? never : k\]: (...)\[(...)\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: ...; errors: ...; extensions: ... \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["output"\] \})\[K\] \}\>; `response`: `Response`; \}\>
 
 ***
 
@@ -446,7 +445,8 @@ and returns the response body (see [ZodqlResponseData](#zodqlresponsedata)).
 
 An HTTP client exposing a Promise-based `post` method, used as the transport
 for a `ZodqlClient`, e.g. a thin wrapper around `fetch`. It resolves to both
-the raw response and a `json()` accessor for its already-parsed body.
+the raw response and a `json()` accessor for its parsed body, which may return
+the body directly or as a promise.
 
 #### Type Parameters
 
@@ -466,7 +466,7 @@ the raw response and a `json()` accessor for its already-parsed body.
 
 Sends a `POST` request. Takes the URL, the request body, and an optional
 transport-specific config, and resolves to `{ response, json }`, where
-`json()` returns the already-parsed response body.
+`json()` returns the parsed response body, either directly or as a promise.
 
 ###### Parameters
 
@@ -656,7 +656,7 @@ The fragment's field selection and, for parsing, its Zod schema.
 > **ZodqlResponseData**\<`Schema`\> = `z.infer`\<`ReturnType`\<*typeof* `createResponseDataSchema`\>\>
 
 The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
-returned by `parseResponse()`. `data` is validated against the query's schema;
+resolved by `parseResponse()`. `data` is validated against the query's schema;
 `extensions` and `errors` are returned as-is (unvalidated) when present.
 
 #### Type Parameters
@@ -724,7 +724,7 @@ const { parseResponse } = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
-const { data } = parseResponse();
+const { data } = await parseResponse();
 ```
 
 ### Using Fragments
@@ -880,13 +880,13 @@ const schema = z.object({
 ### Response Validation
 
 `parseResponse()` validates the response's `data` field against the query's schema and
-returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+resolves to `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
 unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
 — check them yourself:
 
 ```typescript
 const { parseResponse } = await client.request(query, { userId: "123" });
-const { data, errors } = parseResponse();
+const { data, errors } = await parseResponse();
 
 if (errors) {
   // handle GraphQL errors returned alongside `data`

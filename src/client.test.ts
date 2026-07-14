@@ -133,7 +133,7 @@ describe("buildZodqlClient", () => {
       const { response, parseResponse } = await client.request(query, { id: "123" });
 
       expect(response).toBe(fakeResponse);
-      expect(parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
+      expect(await parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
     });
 
     it("throws when the response's data field doesn't match the query's schema", async () => {
@@ -146,7 +146,7 @@ describe("buildZodqlClient", () => {
 
       const { parseResponse } = await client.request(query, { id: "123" });
 
-      expect(() => parseResponse()).toThrow(z.ZodError);
+      await expect(parseResponse()).rejects.toThrow(z.ZodError);
     });
   });
 });
@@ -191,7 +191,7 @@ describe("axios integration", () => {
     const client = buildZodqlClient(buildAxiosHttpClient(axiosInstance));
     const { parseResponse } = await client.request(query, { id: "123" });
 
-    expect(parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
+    expect(await parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
     expect(scope.isDone()).toBe(true);
   });
 
@@ -236,8 +236,7 @@ describe("fetch integration", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      const parsedBody = await response.json();
-      return { response, json: () => parsedBody };
+      return { response, json: () => response.json() };
     },
   });
 
@@ -250,7 +249,7 @@ describe("fetch integration", () => {
     const client = buildZodqlClient(buildFetchHttpClient());
     const { parseResponse } = await client.request(query, { id: "123" });
 
-    expect(parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
+    expect(await parseResponse()).toEqual({ data: { myQuery: { id: "1", name: "Alice" } } });
     expect(scope.isDone()).toBe(true);
   });
 

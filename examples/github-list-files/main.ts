@@ -236,7 +236,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { data } = parseResponse();
+  const { data } = await parseResponse();
 
   if (!data.repository) {
     throw new Error(`Repository ${owner}/${name} was not found (or the token can't access it).`);
