@@ -18,3 +18,7 @@ Instead, write the text to a temporary file with the `Write` tool, then referenc
 
 - `git commit -F <file>` instead of `git commit -m "$(cat <<'EOF' ...)"`
 - `gh pr create --body-file <file>` instead of `gh pr create --body "$(cat <<'EOF' ...)"`
+
+## README.md
+
+`README.md` is generated — do not edit it directly. Instead, edit `README_TEMPLATE.md` and run `pnpm build:docs` to regenerate `README.md`.
