@@ -39,11 +39,28 @@ jobs:
       - name: Ensure npm supports trusted publishing
         run: npm install -g npm@latest
 
+      - name: Check whether the current version is already published
+        id: published
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if curl -sfo /dev/null "https://registry.npmjs.org/${name}/${version}"; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "${name}@${version} is already published; skipping publish."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "${name}@${version} is not published yet."
+          fi
+
       - name: Create release pull request or publish
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          publish: pnpm run release
+          # Only run the publish command when the current version is not yet on
+          # npm. Otherwise changesets/action re-attempts publishing the already
+          # published version on every push to main, which crashes changesets in
+          # isAlreadyPublishedError when npm's E403 error has no `summary` field.
+          publish: ${{ steps.published.outputs.already == 'false' && 'pnpm run release' || '' }}
           title: Release
           commit: Release
         env:
