@@ -7,12 +7,12 @@ export {
   buildZodqlClient,
   type ZodqlClient,
   type ZodqlClientBuilder,
-  type HttpClient,
-  type ResponseData,
+  type ZodqlHttpClient,
+  type ZodqlResponseData,
 } from "./client.js";
 
 // Utility exports
 export { hasTypename } from "./utils/hasTypename.js";
 
 // Type exports
-export type { QueryFragment, QueryVariable, GraphqlQuerySegment, GraphqlQuery } from "./types.js";
+export type { ZodqlQueryFragment, ZodqlQueryVariable, ZodqlQuery } from "./types.js";

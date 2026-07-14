@@ -12,7 +12,7 @@ import type z from "zod";
  *   are spread directly into the parent selection as an inline fragment
  *   (`... on Type { ... }`) wherever it's attached.
  */
-export type QueryFragment<Shape extends z.ZodRawShape = z.ZodRawShape, On extends string = string> = {
+export type ZodqlQueryFragment<Shape extends z.ZodRawShape = z.ZodRawShape, On extends string = string> = {
   /** The GraphQL type this fragment applies to, e.g. `... on User`. */
   on: On;
   /** The fragment's field selection and, for parsing, its Zod schema. */
@@ -33,7 +33,7 @@ export type QueryFragment<Shape extends z.ZodRawShape = z.ZodRawShape, On extend
 /**
  * A GraphQL operation variable, declared via `ZodqlBuilder.defineVariables()`.
  */
-export interface QueryVariable {
+export interface ZodqlQueryVariable {
   /** The GraphQL type of the variable as it appears in the operation signature, e.g. `"ID!"` or `"[String!]"`. */
   typeName: string;
   /** The Zod schema used to validate/parse the value passed for this variable at request time. */
@@ -41,24 +41,11 @@ export interface QueryVariable {
 }
 
 /**
- * A partial GraphQL query/mutation selection: the lines of one document segment
- * plus the fragments it uses. Currently unused by the builder itself (queries
- * are assembled and emitted as a whole), but available for callers composing
- * query text from smaller pieces.
- */
-export interface GraphqlQuerySegment {
-  /** The selection's GraphQL source lines, one array entry per line, unindented relative to the document root. */
-  queryLines: string[];
-  /** The named fragments referenced by `queryLines`, so their definitions can be appended alongside it. */
-  usedFragments: QueryFragment[];
-}
-
-/**
  * The output of `ZodqlBuilder.compile()`: a ready-to-send GraphQL operation
  * paired with everything needed to use it — the variables to pass to a
  * `ZodqlClient`, and the schema to parse/type the response's `data` field with.
  */
-export type GraphqlQuery<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable>> = {
+export type ZodqlQuery<Schema extends z.ZodObject, Variables extends Record<string, ZodqlQueryVariable>> = {
   /** The full GraphQL document source: the operation plus any fragment definitions it uses. */
   queryString: string;
   /** The variable declarations passed to `defineVariables()`, keyed by variable name (without the leading `$`). */

@@ -181,7 +181,7 @@ const userField = zodqlField()
 
 ### zodqlFragment()
 
-> **zodqlFragment**\<`Shape`, `On`\>(`fragmentParam`): [`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
+> **zodqlFragment**\<`Shape`, `On`\>(`fragmentParam`): [`ZodqlQueryFragment`](#zodqlqueryfragment)\<`Shape`, `On`\>
 
 Define a GraphQL fragment from a Zod schema.
 
@@ -212,13 +212,13 @@ if empty, since an empty selection set is not valid GraphQL.
 
 ##### fragmentParam
 
-`object` *extends* `NoInfer`\<`Shape`\> ? `"Error: Fragment shape can not be an empty object"` : [`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
+`object` *extends* `NoInfer`\<`Shape`\> ? `"Error: Fragment shape can not be an empty object"` : [`ZodqlQueryFragment`](#zodqlqueryfragment)\<`Shape`, `On`\>
 
 Fragment definition containing name, on (type), schema, and inline flag
 
 #### Returns
 
-[`QueryFragment`](#queryfragment)\<`Shape`, `On`\>
+[`ZodqlQueryFragment`](#zodqlqueryfragment)\<`Shape`, `On`\>
 
 The validated fragment definition for use in queries
 
@@ -266,7 +266,7 @@ must check `parseResponse().errors` themselves. The returned promise rejects (wi
 making a request) if a variable's value fails its Zod schema, e.g. a required variable
 that was omitted.
 
-`baseClient` only needs to satisfy [HttpClient](#httpclient): a `post` method that resolves to
+`baseClient` only needs to satisfy [ZodqlHttpClient](#zodqlhttpclient): a `post` method that resolves to
 `{ response, json }`, where `json()` returns the already-parsed response body.
 
 #### Type Parameters
@@ -283,7 +283,7 @@ that was omitted.
 
 ##### baseClient
 
-[`HttpClient`](#httpclient)\<`Response`, `RequestConfig`\>
+[`ZodqlHttpClient`](#zodqlhttpclient)\<`Response`, `RequestConfig`\>
 
 An HTTP client to use for GraphQL requests
 
@@ -384,30 +384,65 @@ if (hasTypename(maybeUser, "GuestUser")) {
 
 ## Interfaces
 
-### GraphqlQuerySegment
+### ZodqlClient
 
-A partial GraphQL query/mutation selection: the lines of one document segment
-plus the fragments it uses. Currently unused by the builder itself (queries
-are assembled and emitted as a whole), but available for callers composing
-query text from smaller pieces.
+A GraphQL client that executes compiled operations against an [ZodqlHttpClient](#zodqlhttpclient)
+transport.
 
-#### Properties
+#### Type Parameters
 
-##### queryLines
+##### Response
 
-> **queryLines**: `string`[]
+`Response` = `unknown`
 
-The selection's GraphQL source lines, one array entry per line, unindented relative to the document root.
+##### RequestConfig
 
-##### usedFragments
+`RequestConfig` = `unknown`
 
-> **usedFragments**: [`QueryFragment`](#queryfragment)\<`Readonly`\<\{\[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\>, `string`\>[]
+#### Methods
 
-The named fragments referenced by `queryLines`, so their definitions can be appended alongside it.
+##### request()
+
+> **request**\<`Schema`, `Variables`\>(`query`, `args`, `requestConfig?`): `Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+
+Sends a compiled query/mutation. Takes the compiled query
+(`{ queryString, variables, schema }`), an `args` object supplying a value
+for each declared variable (validated and parsed by its Zod schema before
+the request is sent), and an optional transport-specific request config;
+resolves to `{ response, parseResponse }`, where `parseResponse()` validates
+and returns the response body (see [ZodqlResponseData](#zodqlresponsedata)).
+
+###### Type Parameters
+
+###### Schema
+
+`Schema` *extends* `ZodObject`\<`$ZodLooseShape`, `$strip`\>
+
+###### Variables
+
+`Variables` *extends* `Record`\<`string`, [`ZodqlQueryVariable`](#zodqlqueryvariable)\>
+
+###### Parameters
+
+###### query
+
+[`ZodqlQuery`](#zodqlquery)\<`Schema`, `Variables`\>
+
+###### args
+
+`MakeUndefinableFieldsOptional`\<\{ \[Key in string \| number \| symbol\]: input\<Variables\[Key\]\["schema"\]\> \}\>
+
+###### requestConfig?
+
+`RequestConfig`
+
+###### Returns
+
+`Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
 
 ***
 
-### HttpClient
+### ZodqlHttpClient
 
 An HTTP client exposing a Promise-based `post` method, used as the transport
 for a `ZodqlClient`, e.g. a thin wrapper around `fetch`. It resolves to both
@@ -453,7 +488,7 @@ transport-specific config, and resolves to `{ response, json }`, where
 
 ***
 
-### QueryVariable
+### ZodqlQueryVariable
 
 A GraphQL operation variable, declared via `ZodqlBuilder.defineVariables()`.
 
@@ -471,12 +506,13 @@ The Zod schema used to validate/parse the value passed for this variable at requ
 
 The GraphQL type of the variable as it appears in the operation signature, e.g. `"ID!"` or `"[String!]"`.
 
-***
+## Type Aliases
 
-### ZodqlClient
+### ZodqlClientBuilder
 
-A GraphQL client that executes compiled operations against an [HttpClient](#httpclient)
-transport.
+> **ZodqlClientBuilder**\<`Response`, `RequestConfig`\> = (`baseClient`) => [`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
+
+A factory that wraps an [ZodqlHttpClient](#zodqlhttpclient) transport in a `ZodqlClient`.
 
 #### Type Parameters
 
@@ -488,52 +524,43 @@ transport.
 
 `RequestConfig` = `unknown`
 
-#### Methods
+#### Parameters
 
-##### request()
+##### baseClient
 
-> **request**\<`Schema`, `Variables`\>(`query`, `args`, `requestConfig?`): `Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
+[`ZodqlHttpClient`](#zodqlhttpclient)\<`Response`, `RequestConfig`\>
 
-Sends a compiled query/mutation. Takes the compiled query
-(`{ queryString, variables, schema }`), an `args` object supplying a value
-for each declared variable (validated and parsed by its Zod schema before
-the request is sent), and an optional transport-specific request config;
-resolves to `{ response, parseResponse }`, where `parseResponse()` validates
-and returns the response body (see [ResponseData](#responsedata)).
+#### Returns
 
-###### Type Parameters
+[`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
 
-###### Schema
+***
 
-`Schema` *extends* `ZodObject`\<`$ZodLooseShape`, `$strip`\>
+### ZodqlOptions
 
-###### Variables
+> **ZodqlOptions** = `object`
 
-`Variables` *extends* `Record`\<`string`, [`QueryVariable`](#queryvariable)\>
+Optional settings for a `zodql` operation.
 
-###### Parameters
+#### Properties
 
-###### query
+##### operationName?
 
-[`GraphqlQuery`](#graphqlquery)\<`Schema`, `Variables`\>
+> `optional` **operationName?**: `string`
 
-###### args
+Optional name for the GraphQL operation. When provided, the compiled
+operation is emitted with this name (e.g. `query myRootQuery { ... }`),
+which is useful for server-side logging, tracing, and debugging. When
+omitted, an anonymous operation is emitted (e.g. `query { ... }`). The value
+must be a valid GraphQL `Name` (a letter or underscore followed by letters,
+digits, or underscores); otherwise `compile()` throws.
+See https://spec.graphql.org/October2021/#sec-Names
 
-`MakeUndefinableFieldsOptional`\<\{ \[Key in string \| number \| symbol\]: input\<Variables\[Key\]\["schema"\]\> \}\>
+***
 
-###### requestConfig?
+### ZodqlQuery
 
-`RequestConfig`
-
-###### Returns
-
-`Promise`\<\{ `parseResponse`: () => \{ \[K in string \| number \| symbol\]: (\{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? never : k\]: \{ data: ...; errors: ...; extensions: ... \}\[k\]\["\_zod"\]\["output"\] \} & \{ -readonly \[k in "errors" \| "data" \| "extensions" as \{ data: Schema; errors: ZodOptional\<(...)\>; extensions: ZodOptional\<(...)\> \}\[k\] extends OptionalOutSchema ? k : never\]?: (...)\[(...)\]\["\_zod"\]\["output"\] \})\[K\] \}; `response`: `Response`; \}\>
-
-## Type Aliases
-
-### GraphqlQuery
-
-> **GraphqlQuery**\<`Schema`, `Variables`\> = `object`
+> **ZodqlQuery**\<`Schema`, `Variables`\> = `object`
 
 The output of `ZodqlBuilder.compile()`: a ready-to-send GraphQL operation
 paired with everything needed to use it — the variables to pass to a
@@ -547,7 +574,7 @@ paired with everything needed to use it — the variables to pass to a
 
 ##### Variables
 
-`Variables` *extends* `Record`\<`string`, [`QueryVariable`](#queryvariable)\>
+`Variables` *extends* `Record`\<`string`, [`ZodqlQueryVariable`](#zodqlqueryvariable)\>
 
 #### Properties
 
@@ -571,9 +598,9 @@ The variable declarations passed to `defineVariables()`, keyed by variable name 
 
 ***
 
-### QueryFragment
+### ZodqlQueryFragment
 
-> **QueryFragment**\<`Shape`, `On`\> = `object` & \{ `name`: `string`; \} \| \{ `inline`: `true`; \}
+> **ZodqlQueryFragment**\<`Shape`, `On`\> = `object` & \{ `name`: `string`; \} \| \{ `inline`: `true`; \}
 
 A GraphQL fragment definition, created with `zodqlFragment()` and attached to
 a field via `withFragment()`, `withRequiredFragment()`, or `withUnionFragments()`.
@@ -624,9 +651,9 @@ The fragment's field selection and, for parsing, its Zod schema.
 
 ***
 
-### ResponseData
+### ZodqlResponseData
 
-> **ResponseData**\<`Schema`\> = `z.infer`\<`ReturnType`\<*typeof* `createResponseDataSchema`\>\>
+> **ZodqlResponseData**\<`Schema`\> = `z.infer`\<`ReturnType`\<*typeof* `createResponseDataSchema`\>\>
 
 The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
 returned by `parseResponse()`. `data` is validated against the query's schema;
@@ -637,56 +664,6 @@ returned by `parseResponse()`. `data` is validated against the query's schema;
 ##### Schema
 
 `Schema` *extends* `z.ZodObject`
-
-***
-
-### ZodqlClientBuilder
-
-> **ZodqlClientBuilder**\<`Response`, `RequestConfig`\> = (`baseClient`) => [`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
-
-A factory that wraps an [HttpClient](#httpclient) transport in a `ZodqlClient`.
-
-#### Type Parameters
-
-##### Response
-
-`Response` = `unknown`
-
-##### RequestConfig
-
-`RequestConfig` = `unknown`
-
-#### Parameters
-
-##### baseClient
-
-[`HttpClient`](#httpclient)\<`Response`, `RequestConfig`\>
-
-#### Returns
-
-[`ZodqlClient`](#zodqlclient)\<`Response`, `RequestConfig`\>
-
-***
-
-### ZodqlOptions
-
-> **ZodqlOptions** = `object`
-
-Optional settings for a `zodql` operation.
-
-#### Properties
-
-##### operationName?
-
-> `optional` **operationName?**: `string`
-
-Optional name for the GraphQL operation. When provided, the compiled
-operation is emitted with this name (e.g. `query myRootQuery { ... }`),
-which is useful for server-side logging, tracing, and debugging. When
-omitted, an anonymous operation is emitted (e.g. `query { ... }`). The value
-must be a valid GraphQL `Name` (a letter or underscore followed by letters,
-digits, or underscores); otherwise `compile()` throws.
-See https://spec.graphql.org/October2021/#sec-Names
 
 ## Advanced Usage
 
