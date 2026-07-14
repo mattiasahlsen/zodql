@@ -76,7 +76,7 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
    *   field's own selection and any `withFragment`/`withRequiredFragment` fragments).
    *   Known typenames must still satisfy their fragment's required fields.
    * @returns New ZodqlFieldBuilder instance with the union fragment schemas applied.
-   * @throws {Error} If `fragments` is empty.
+   * @throws If `fragments` is empty.
    */
   withUnionFragments: <Fragments extends [QueryFragment, ...QueryFragment[]], RequireOne extends boolean>(
     fragments: {
@@ -330,7 +330,9 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements 
  * one, so calls can be chained freely. Call `toSchema()` last to produce the
  * finished schema for use as a field's value in a document schema.
  *
- * @returns {ZodqlFieldBuilder} A new ZodqlFieldBuilder instance for configuring field properties
+ * @returns A new ZodqlFieldBuilder instance for configuring field properties
+ *
+ * @group Query Building
  *
  * @example
  * ```typescript

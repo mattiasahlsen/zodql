@@ -3,14 +3,32 @@ import type { QueryVariable, GraphqlQuery } from "./types.js";
 import type { SetOptional } from "type-fest";
 
 /**
- * An HTTP client exposing a Promise-based `post` method that resolves to both the raw
- * response and a `json()` accessor for its already-parsed body, e.g. a thin wrapper around `fetch`.
+ * An HTTP client exposing a Promise-based `post` method, used as the transport
+ * for a `ZodqlClient`, e.g. a thin wrapper around `fetch`. It resolves to both
+ * the raw response and a `json()` accessor for its already-parsed body.
  */
 export interface HttpClient<Response = unknown, RequestConfig = unknown> {
+  /**
+   * Sends a `POST` request. Takes the URL, the request body, and an optional
+   * transport-specific config, and resolves to `{ response, json }`, where
+   * `json()` returns the already-parsed response body.
+   */
   post(url: string, data: unknown, config?: RequestConfig): Promise<{ response: Response; json: () => unknown }>;
 }
 
+/**
+ * A GraphQL client that executes compiled operations against an {@link HttpClient}
+ * transport.
+ */
 export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
+  /**
+   * Sends a compiled query/mutation. Takes the compiled query
+   * (`{ queryString, variables, schema }`), an `args` object supplying a value
+   * for each declared variable (validated and parsed by its Zod schema before
+   * the request is sent), and an optional transport-specific request config;
+   * resolves to `{ response, parseResponse }`, where `parseResponse()` validates
+   * and returns the response body (see {@link ResponseData}).
+   */
   request<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable>>(
     query: GraphqlQuery<Schema, Variables>,
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
@@ -21,51 +39,12 @@ export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
   }>;
 }
 
+/**
+ * A factory that wraps an {@link HttpClient} transport in a `ZodqlClient`.
+ */
 export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
   baseClient: HttpClient<Response, RequestConfig>
 ) => ZodqlClient<Response, RequestConfig>;
-
-/**
- * An HTTP client exposing a Promise-based `post` method, used as the transport
- * for a `ZodqlClient`, e.g. a thin wrapper around `fetch`.
- *
- * @typedef {Object} HttpClient
- * @property {function} post - Sends a `POST` request. Takes the URL, the request
- *   body, and an optional transport-specific config, and resolves to
- *   `{ response, json }`, where `json()` returns the already-parsed response body.
- */
-
-/**
- * A GraphQL client that executes compiled operations against an {@link HttpClient}
- * transport.
- *
- * @typedef {Object} ZodqlClient
- * @property {function} request - Sends a compiled query/mutation. Takes the compiled
- *   query (`{ queryString, variables, schema }`), an `args` object supplying a value
- *   for each declared variable (validated and parsed by its Zod schema before the
- *   request is sent), and an optional transport-specific request config; resolves to
- *   `{ response, parseResponse }`, where `parseResponse()` validates and returns the
- *   response body (see {@link ResponseData}).
- */
-
-/**
- * A factory that wraps an {@link HttpClient} transport in a `ZodqlClient`.
- *
- * @typedef {function} ZodqlClientBuilder
- * @param {HttpClient} baseClient - The HTTP client to use as the transport.
- * @returns {ZodqlClient} A client that executes GraphQL operations over that transport.
- */
-
-/**
- * The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
- * returned by `parseResponse()`. `data` is validated against the query's schema;
- * `extensions` and `errors` are returned as-is (unvalidated) when present.
- *
- * @typedef {Object} ResponseData
- * @property {Object} data - The response payload, typed and validated by the query's schema.
- * @property {Object} [extensions] - Server-provided extensions, if any; returned unvalidated.
- * @property {Object} [errors] - GraphQL errors returned in the response body, if any; returned unvalidated.
- */
 
 /**
  * Build a Zod GraphQL client using the given HTTP client as the transport.
@@ -87,8 +66,8 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * `baseClient` only needs to satisfy {@link HttpClient}: a `post` method that resolves to
  * `{ response, json }`, where `json()` returns the already-parsed response body.
  *
- * @param {HttpClient<Response, RequestConfig>} baseClient - An HTTP client to use for GraphQL requests
- * @returns {ZodqlClient<Response, RequestConfig>} A ZodqlClient instance that executes GraphQL operations
+ * @param baseClient - An HTTP client to use for GraphQL requests
+ * @returns A ZodqlClient instance that executes GraphQL operations
  *
  * @example
  * ```typescript
@@ -169,6 +148,11 @@ function createResponseDataSchema<Schema extends z.ZodObject>(dataSchema: Schema
     errors: z.unknown().optional(),
   });
 }
+/**
+ * The parsed body of a GraphQL response — `{ data, extensions?, errors? }` — as
+ * returned by `parseResponse()`. `data` is validated against the query's schema;
+ * `extensions` and `errors` are returned as-is (unvalidated) when present.
+ */
 export type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;
 
 type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
