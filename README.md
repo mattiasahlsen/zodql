@@ -113,7 +113,7 @@ A ZodqlBuilder instance for chaining operations
 #### Example
 
 ```typescript
-import { zodql, zodqlField } from 'zodql';
+import { zodql, zodqlField } from '@mattiasahlsen/zodql';
 import { z } from 'zod';
 
 const userSchema = z.object({
@@ -157,7 +157,7 @@ A new ZodqlFieldBuilder instance for configuring field properties
 #### Example
 
 ```typescript
-import { zodqlField } from 'zodql';
+import { zodqlField } from '@mattiasahlsen/zodql';
 import { z } from 'zod';
 
 const userField = zodqlField()
@@ -228,7 +228,7 @@ If the fragment's schema shape is an empty object
 #### Example
 
 ```typescript
-import { zodqlFragment } from 'zodql';
+import { zodqlFragment } from '@mattiasahlsen/zodql';
 import { z } from 'zod';
 
 const userFragment = zodqlFragment({
@@ -296,7 +296,7 @@ A ZodqlClient instance that executes GraphQL operations
 #### Example
 
 ```typescript
-import { buildZodqlClient } from 'zodql';
+import { buildZodqlClient } from '@mattiasahlsen/zodql';
 
 const client = buildZodqlClient({
   post: async (url, data) => {

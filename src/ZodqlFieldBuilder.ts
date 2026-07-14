@@ -336,7 +336,7 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements 
  *
  * @example
  * ```typescript
- * import { zodqlField } from 'zodql';
+ * import { zodqlField } from '@mattiasahlsen/zodql';
  * import { z } from 'zod';
  *
  * const userField = zodqlField()
