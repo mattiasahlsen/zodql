@@ -77,7 +77,7 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  *
  * @example
  * ```typescript
- * import { buildZodqlClient } from 'zodql';
+ * import { buildZodqlClient } from '@mattiasahlsen/zodql';
  *
  * const client = buildZodqlClient({
  *   post: async (url, data) => {

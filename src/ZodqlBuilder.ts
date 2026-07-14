@@ -256,7 +256,7 @@ export type ZodqlOptions = {
  *
  * @example
  * ```typescript
- * import { zodql, zodqlField } from 'zodql';
+ * import { zodql, zodqlField } from '@mattiasahlsen/zodql';
  * import { z } from 'zod';
  *
  * const userSchema = z.object({
@@ -305,7 +305,7 @@ export function zodql<Schema extends z.ZodObject>(
  *
  * @example
  * ```typescript
- * import { zodqlFragment } from 'zodql';
+ * import { zodqlFragment } from '@mattiasahlsen/zodql';
  * import { z } from 'zod';
  *
  * const userFragment = zodqlFragment({
