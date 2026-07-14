@@ -22,3 +22,17 @@ Instead, write the text to a temporary file with the `Write` tool, then referenc
 ## README.md
 
 `README.md` is generated — do not edit it directly. Instead, edit `README_TEMPLATE.md` and run `pnpm build:docs` to regenerate `README.md`.
+
+## Changesets
+
+Any change that should be released needs a changeset, or it won't be published. `pnpm changeset` is interactive and can't be run non-interactively here, so add the file by hand: create `.changeset/<short-kebab-name>.md` with frontmatter naming the package and a semver bump, followed by a summary. This repo is pre-1.0, so breaking changes get a `minor` bump (not `major`); use `patch` for bug fixes.
+
+```markdown
+---
+"@mattiasahlsen/zodql": minor
+---
+
+Short description of the change.
+```
+
+Commit the changeset alongside the PR. On merge to `main`, CI opens/updates a "Release" PR that bundles pending changesets; merging that publishes to npm.

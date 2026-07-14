@@ -50,14 +50,13 @@ const client = buildZodqlClient({
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify(data),
     });
-    const body = await response.json();
-    return { response, json: () => body };
+    return { response, json: () => response.json() };
   },
 });
 
 // Execute the query
 const { parseResponse } = await client.request(query, { userId: "123" });
-const { data } = parseResponse();
+const { data } = await parseResponse();
 ```
 
 ## API Documentation
@@ -123,7 +122,7 @@ const { parseResponse } = await client.request(mutation, {
     tags: ["developer", "typescript"],
   },
 });
-const { data } = parseResponse();
+const { data } = await parseResponse();
 ```
 
 ### Using Fragments
@@ -279,13 +278,13 @@ const schema = z.object({
 ### Response Validation
 
 `parseResponse()` validates the response's `data` field against the query's schema and
-returns `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
+resolves to `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through
 unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically
 — check them yourself:
 
 ```typescript
 const { parseResponse } = await client.request(query, { userId: "123" });
-const { data, errors } = parseResponse();
+const { data, errors } = await parseResponse();
 
 if (errors) {
   // handle GraphQL errors returned alongside `data`
