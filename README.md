@@ -9,6 +9,7 @@ zodql compiles a Zod schema into a GraphQL query, sends it through the HTTP clie
 - **One source of truth** — The same Zod schema defines the GraphQL query, the TypeScript type of the response, and the runtime validation applied to it. There's no separate query string to keep in sync with your types, and no codegen step to run: change the schema and the query, the types, and the validation all move together.
 - **Dynamic queries, modifiable at runtime** — A query is a Zod schema, so you can build and adapt it with ordinary Zod combinators. Use `.pick()` / `.omit()` to trim a shared schema down to the fields a given screen needs, `.extend()` to add more, or compose schemas conditionally — all at runtime, without templating GraphQL strings by hand.
 - **Validation beyond the GraphQL schema** — GraphQL's type system only knows scalars like `String` and `Int`. With Zod you can assert much more about the data you receive: non-empty strings, arrays with at least one item, emails, URLs, numeric ranges, enums, and any other refinement Zod supports — and have responses that violate those rules rejected at parse time.
+- **Reusable query segments** — Fragments and schemas are ordinary runtime values, so you can define a field selection once and reuse it across many queries by importing and composing it — no duplicated selection sets, no generated fragment types to wire up. The result is less boilerplate and less verbose query code.
 
 ## Features
 
