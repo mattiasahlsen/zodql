@@ -15,7 +15,12 @@
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // Resolve the package name to the library source so examples typecheck and
+    // run without a prior build (dist/ doesn't exist in CI's verify job).
+    "paths": {
+      "@mattiasahlsen/zodql": ["../src/index.ts"]
+    }
   },
   "include": ["./**/*.ts"]
 }

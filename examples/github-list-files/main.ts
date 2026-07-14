@@ -20,7 +20,7 @@
  *
  * See ./README.md for details, including how to create a token.
  */
-import { zodql, zodqlField, buildZodqlClient } from "zodql";
+import { zodql, zodqlField, buildZodqlClient } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
