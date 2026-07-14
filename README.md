@@ -13,11 +13,11 @@ A utility library for integrating Zod schemas with GraphQL in TypeScript project
 ## Installation
 
 ```bash
-npm install zodql zod
+npm install @mattiasahlsen/zodql zod
 ```
 
 ```bash
-pnpm add zodql zod
+pnpm add @mattiasahlsen/zodql zod
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ pnpm add zodql zod
 The example below uses the global `fetch`, but any client whose `post` method resolves to `{ response, json }` works, where `json()` returns the already-parsed response body:
 
 ```typescript
-import { zodql, buildZodqlClient } from "zodql";
+import { zodql, buildZodqlClient } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 // Define your schema
@@ -672,7 +672,7 @@ returned by `parseResponse()`. `data` is validated against the query's schema;
 Build queries or mutations with complex input types:
 
 ```typescript
-import { zodql, zodqlField } from "zodql";
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 // Define complex input schema
@@ -732,7 +732,7 @@ const { data } = parseResponse();
 Fragments allow you to reuse common field selections:
 
 ```typescript
-import { zodqlFragment, zodqlField } from "zodql";
+import { zodqlFragment, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 const userFragment = zodqlFragment({
@@ -764,7 +764,7 @@ const postSchema = z.object({
 Use `withFragment()` for optional fragments and `withRequiredFragment()` for required ones:
 
 ```typescript
-import { zodqlFragment, zodqlField } from "zodql";
+import { zodqlFragment, zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 // Define fragments for different node types
@@ -834,7 +834,7 @@ const mediaQuerySchema = z.object({
 Add arguments to GraphQL fields:
 
 ```typescript
-import { zodqlField } from "zodql";
+import { zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 const userField = zodqlField()
@@ -852,7 +852,7 @@ const userField = zodqlField()
 Query the same field multiple times with different arguments:
 
 ```typescript
-import { zodqlField } from "zodql";
+import { zodqlField } from "@mattiasahlsen/zodql";
 import { z } from "zod";
 
 const schema = z.object({
