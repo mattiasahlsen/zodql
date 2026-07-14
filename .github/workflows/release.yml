@@ -61,6 +61,8 @@ jobs:
           # published version on every push to main, which crashes changesets in
           # isAlreadyPublishedError when npm's E403 error has no `summary` field.
           publish: ${{ steps.published.outputs.already == 'false' && 'pnpm run release' || '' }}
+          title: Release
+          commit: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
