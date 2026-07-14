@@ -1,5 +1,5 @@
 import type z from "zod";
-import type { QueryVariable, GraphqlQuery, QueryFragment } from "./types.js";
+import type { ZodqlQueryVariable, ZodqlQuery, ZodqlQueryFragment } from "./types.js";
 import type { EmptyObject } from "type-fest";
 import { ALIAS_TARGET_KEY, FRAGMENTS_KEY, QUERY_ARGUMENTS_KEY, ZODQL_FIELD_CORE_SHAPE_KEY } from "./constants.js";
 
@@ -11,14 +11,14 @@ const GRAPHQL_NAME_REGEX = /^[_A-Za-z][_0-9A-Za-z]*$/;
 
 const INDENT_UNIT = "  ";
 
-type RegularFragment = QueryFragment & { isRequired: boolean };
+type RegularFragment = ZodqlQueryFragment & { isRequired: boolean };
 
 type FieldInfo = {
   coreShape: z.ZodRawShape;
   args: Record<string, string>;
   aliasFor: string | undefined;
   regularFragments: RegularFragment[];
-  unionFragments: { fragments: QueryFragment[]; requireOne: boolean } | null;
+  unionFragments: { fragments: ZodqlQueryFragment[]; requireOne: boolean } | null;
 };
 
 /**
@@ -174,11 +174,11 @@ function buildFieldLines(name: string, schema: any, indent: number): string[] {
  *
  * @private
  */
-function collectFragments(shape: z.ZodRawShape): QueryFragment[] {
-  const ordered: QueryFragment[] = [];
+function collectFragments(shape: z.ZodRawShape): ZodqlQueryFragment[] {
+  const ordered: ZodqlQueryFragment[] = [];
   const seen = new Set<string>();
 
-  const addFragment = (fragment: QueryFragment): void => {
+  const addFragment = (fragment: ZodqlQueryFragment): void => {
     const name = fragment.name;
     if (name === undefined || seen.has(name)) return;
     seen.add(name);
@@ -210,7 +210,7 @@ function collectFragments(shape: z.ZodRawShape): QueryFragment[] {
   return ordered;
 }
 
-function buildFragmentDefinition(fragment: QueryFragment): string[] {
+function buildFragmentDefinition(fragment: ZodqlQueryFragment): string[] {
   const lines = [`fragment ${fragment.name} on ${fragment.on} {`];
   for (const [fieldName, fieldSchema] of Object.entries(fragment.schema.shape)) {
     lines.push(...buildFieldLines(fieldName, fieldSchema, 1));
@@ -323,16 +323,16 @@ export function zodql<Schema extends z.ZodObject>(
 export function zodqlFragment<Shape extends z.ZodRawShape, On extends string>(
   fragmentParam: {} extends NoInfer<Shape>
     ? "Error: Fragment shape can not be an empty object"
-    : QueryFragment<Shape, On>
-): QueryFragment<Shape, On> {
-  const fragment = fragmentParam as QueryFragment<Shape, On>;
+    : ZodqlQueryFragment<Shape, On>
+): ZodqlQueryFragment<Shape, On> {
+  const fragment = fragmentParam as ZodqlQueryFragment<Shape, On>;
   if (Object.keys(fragment.schema.shape).length === 0) {
     throw new Error("Fragment shape can not be an empty object");
   }
   return fragment;
 }
 
-class ZodqlBuilder<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable> = EmptyObject> {
+class ZodqlBuilder<Schema extends z.ZodObject, Variables extends Record<string, ZodqlQueryVariable> = EmptyObject> {
   constructor(
     private readonly operation: Operation,
     private readonly schema: Schema,
@@ -342,7 +342,7 @@ class ZodqlBuilder<Schema extends z.ZodObject, Variables extends Record<string, 
 
   // Returns a new builder with `newVariables` merged in; does not mutate this
   // one. Later calls win on name collisions, since object spread is last-wins.
-  defineVariables<NewVariables extends Record<string, QueryVariable>>(
+  defineVariables<NewVariables extends Record<string, ZodqlQueryVariable>>(
     newVariables: NewVariables
   ): ZodqlBuilder<Schema, Variables & NewVariables> {
     return new ZodqlBuilder(this.operation, this.schema, { ...this.variables, ...newVariables }, this.options);
@@ -351,7 +351,7 @@ class ZodqlBuilder<Schema extends z.ZodObject, Variables extends Record<string, 
   // Renders the document schema (and any fragments it reaches) into GraphQL
   // source text. Throws only if `options.operationName` was set to an invalid
   // GraphQL name.
-  compile(): GraphqlQuery<Schema, Variables> {
+  compile(): ZodqlQuery<Schema, Variables> {
     const { operationName } = this.options;
     if (operationName !== undefined && !GRAPHQL_NAME_REGEX.test(operationName)) {
       throw new Error(

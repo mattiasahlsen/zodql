@@ -1,5 +1,5 @@
 import z from "zod";
-import type { QueryVariable, GraphqlQuery } from "./types.js";
+import type { ZodqlQueryVariable, ZodqlQuery } from "./types.js";
 import type { SetOptional } from "type-fest";
 
 /**
@@ -7,7 +7,7 @@ import type { SetOptional } from "type-fest";
  * for a `ZodqlClient`, e.g. a thin wrapper around `fetch`. It resolves to both
  * the raw response and a `json()` accessor for its already-parsed body.
  */
-export interface HttpClient<Response = unknown, RequestConfig = unknown> {
+export interface ZodqlHttpClient<Response = unknown, RequestConfig = unknown> {
   /**
    * Sends a `POST` request. Takes the URL, the request body, and an optional
    * transport-specific config, and resolves to `{ response, json }`, where
@@ -17,7 +17,7 @@ export interface HttpClient<Response = unknown, RequestConfig = unknown> {
 }
 
 /**
- * A GraphQL client that executes compiled operations against an {@link HttpClient}
+ * A GraphQL client that executes compiled operations against an {@link ZodqlHttpClient}
  * transport.
  */
 export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
@@ -27,23 +27,23 @@ export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
    * for each declared variable (validated and parsed by its Zod schema before
    * the request is sent), and an optional transport-specific request config;
    * resolves to `{ response, parseResponse }`, where `parseResponse()` validates
-   * and returns the response body (see {@link ResponseData}).
+   * and returns the response body (see {@link ZodqlResponseData}).
    */
-  request<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable>>(
-    query: GraphqlQuery<Schema, Variables>,
+  request<Schema extends z.ZodObject, Variables extends Record<string, ZodqlQueryVariable>>(
+    query: ZodqlQuery<Schema, Variables>,
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
     requestConfig?: RequestConfig
   ): Promise<{
     response: Response;
-    parseResponse: () => ResponseData<Schema>;
+    parseResponse: () => ZodqlResponseData<Schema>;
   }>;
 }
 
 /**
- * A factory that wraps an {@link HttpClient} transport in a `ZodqlClient`.
+ * A factory that wraps an {@link ZodqlHttpClient} transport in a `ZodqlClient`.
  */
 export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
-  baseClient: HttpClient<Response, RequestConfig>
+  baseClient: ZodqlHttpClient<Response, RequestConfig>
 ) => ZodqlClient<Response, RequestConfig>;
 
 /**
@@ -63,7 +63,7 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * making a request) if a variable's value fails its Zod schema, e.g. a required variable
  * that was omitted.
  *
- * `baseClient` only needs to satisfy {@link HttpClient}: a `post` method that resolves to
+ * `baseClient` only needs to satisfy {@link ZodqlHttpClient}: a `post` method that resolves to
  * `{ response, json }`, where `json()` returns the already-parsed response body.
  *
  * @param baseClient - An HTTP client to use for GraphQL requests
@@ -90,7 +90,7 @@ export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
  * ```
  */
 export function buildZodqlClient<Response = unknown, RequestConfig = unknown>(
-  baseClient: HttpClient<Response, RequestConfig>
+  baseClient: ZodqlHttpClient<Response, RequestConfig>
 ): ZodqlClient<Response, RequestConfig> {
   return new ZodqlClientImplementation<Response, RequestConfig>(baseClient);
 }
@@ -100,16 +100,16 @@ class ZodqlClientImplementation<Response = unknown, RequestConfig = unknown> imp
   Response,
   RequestConfig
 > {
-  private readonly baseClient: HttpClient<Response, RequestConfig>;
-  constructor(baseClient: HttpClient<Response, RequestConfig>) {
+  private readonly baseClient: ZodqlHttpClient<Response, RequestConfig>;
+  constructor(baseClient: ZodqlHttpClient<Response, RequestConfig>) {
     this.baseClient = baseClient;
   }
 
-  async request<Schema extends z.ZodObject, Variables extends Record<string, QueryVariable>>(
-    { queryString, variables, schema }: GraphqlQuery<Schema, Variables>,
+  async request<Schema extends z.ZodObject, Variables extends Record<string, ZodqlQueryVariable>>(
+    { queryString, variables, schema }: ZodqlQuery<Schema, Variables>,
     args: MakeUndefinableFieldsOptional<{ [Key in keyof Variables]: z.input<Variables[Key]["schema"]> }>,
     requestConfig?: RequestConfig
-  ): Promise<{ response: Response; parseResponse: () => ResponseData<Schema> }> {
+  ): Promise<{ response: Response; parseResponse: () => ZodqlResponseData<Schema> }> {
     const providedArgs = args as Record<string, unknown>;
     const parsedVariables: Record<string, unknown> = {};
 
@@ -153,7 +153,9 @@ function createResponseDataSchema<Schema extends z.ZodObject>(dataSchema: Schema
  * returned by `parseResponse()`. `data` is validated against the query's schema;
  * `extensions` and `errors` are returned as-is (unvalidated) when present.
  */
-export type ResponseData<Schema extends z.ZodObject> = z.infer<ReturnType<typeof createResponseDataSchema<Schema>>>;
+export type ZodqlResponseData<Schema extends z.ZodObject> = z.infer<
+  ReturnType<typeof createResponseDataSchema<Schema>>
+>;
 
 type MakeUndefinableFieldsOptional<T extends object> = SetOptional<
   T,

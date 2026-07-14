@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { buildZodqlClient, type HttpClient } from "./client.js";
+import { buildZodqlClient, type ZodqlHttpClient } from "./client.js";
 import { zodql } from "./ZodqlBuilder.js";
 import { zodqlField } from "./ZodqlFieldBuilder.js";
 import { vi } from "vitest";
@@ -9,7 +9,7 @@ import fetch, { type Response as FetchResponse } from "node-fetch";
 import nock from "nock";
 
 describe("buildZodqlClient", () => {
-  const mockedClient = vi.mocked<HttpClient>({
+  const mockedClient = vi.mocked<ZodqlHttpClient>({
     post: vi.fn(() => ({
       response: {},
       json: () => ({}),
@@ -174,7 +174,7 @@ describe("axios integration", () => {
       })
       .compile();
 
-  const buildAxiosHttpClient = (axiosInstance: AxiosInstance): HttpClient<AxiosResponse, AxiosRequestConfig> => ({
+  const buildAxiosHttpClient = (axiosInstance: AxiosInstance): ZodqlHttpClient<AxiosResponse, AxiosRequestConfig> => ({
     post: async (url, data, config) => {
       const response = await axiosInstance.post(url, data, config);
       return { response, json: () => response.data };
@@ -229,7 +229,7 @@ describe("fetch integration", () => {
       })
       .compile();
 
-  const buildFetchHttpClient = (): HttpClient<FetchResponse> => ({
+  const buildFetchHttpClient = (): ZodqlHttpClient<FetchResponse> => ({
     post: async (url, data) => {
       const response = await fetch(`${baseUrl}${url}`, {
         method: "POST",
