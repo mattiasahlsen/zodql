@@ -44,6 +44,8 @@ jobs:
         with:
           version: pnpm run version
           publish: pnpm run release
+          title: Release
+          commit: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
