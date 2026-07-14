@@ -19,6 +19,15 @@ pnpm build
 
 See each example's README for prerequisites (such as API tokens) and usage.
 
+## README snippets
+
+The [`readme/`](./readme) folder holds the small, compile-checked examples that
+`pnpm build:docs` embeds verbatim into the root [README](../README.md); their
+exported compiled queries are also imported (via
+[`print-readme-queries.ts`](./print-readme-queries.ts)) to generate the GraphQL
+snippets shown alongside them. They are type-checked together with the other
+examples but aren't meant to be run.
+
 ## Type-checking the examples
 
 The examples aren't part of the library's build, but they have their own
