@@ -46,8 +46,9 @@ export interface ZodqlClient<Response = unknown, RequestConfig = unknown> {
 
 /**
  * A factory that wraps an {@link ZodqlHttpClient} transport in a `ZodqlClient`.
+ * Internal: used only to type-check `buildZodqlClient`'s signature, not exported.
  */
-export type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
+type ZodqlClientBuilder<Response = unknown, RequestConfig = unknown> = (
   baseClient: ZodqlHttpClient<Response, RequestConfig>
 ) => ZodqlClient<Response, RequestConfig>;
 
