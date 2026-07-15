@@ -22,5 +22,8 @@
       "@mattiasahlsen/zodql": ["../src/index.ts"]
     }
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts"],
+  // The "without zodql" alternatives include generated code and are type-checked
+  // by their own (looser) program — see ./github-repo-overview/alternatives/tsconfig.json.
+  "exclude": ["./github-repo-overview/alternatives"]
 }

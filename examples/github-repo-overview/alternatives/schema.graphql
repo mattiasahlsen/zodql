@@ -1,0 +1,86 @@
+# A hand-written *subset* of GitHub's GraphQL schema — just the types the
+# `RepositoryOverview` operation touches. GitHub's real public SDL is several
+# megabytes, so committing all of it would dwarf the example; the codegen,
+# gql.tada, and Zeus generators only need the parts an operation actually
+# references, and this file mirrors GitHub's field names, nullability, and
+# scalar types (`URI`, `DateTime`) exactly for those fields.
+#
+# Keep this in sync with the fields selected in each alternative's operation
+# (and with the zodql version's ../schema.ts one level up).
+
+"An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."
+scalar URI
+
+"An ISO-8601 encoded UTC date string."
+scalar DateTime
+
+type Query {
+  "Look up a repository by owner and name."
+  repository(owner: String!, name: String!): Repository
+}
+
+"A repository contains the content for a project."
+type Repository {
+  "The name of the repository."
+  name: String!
+  "The repository's name with owner, e.g. `owner/name`."
+  nameWithOwner: String!
+  "The description of the repository."
+  description: String
+  "The HTTP URL for this repository."
+  url: URI!
+  "Whether the repository is private."
+  isPrivate: Boolean!
+  "Returns a count of how many stargazers there are on this object."
+  stargazerCount: Int!
+  "Returns how many forks there are of this repository in the whole network."
+  forkCount: Int!
+  "The primary language of the repository's code."
+  primaryLanguage: Language
+  "The license associated with the repository."
+  licenseInfo: License
+  "A list of issues that have been opened in the repository, filtered by state."
+  issues(states: [IssueState!]): IssueConnection!
+  "The latest release published for the repository."
+  latestRelease: Release
+}
+
+"A programming language."
+type Language {
+  "The name of the language."
+  name: String!
+}
+
+"A repository's open source license."
+type License {
+  "The license full name specified by <https://spdx.org/licenses>."
+  name: String!
+  "Short identifier specified by <https://spdx.org/licenses>."
+  spdxId: String
+}
+
+"A release contains the content for a release."
+type Release {
+  "The title of the release."
+  name: String
+  "The name of the release's Git tag."
+  tagName: String!
+  "The HTTP URL for this release."
+  url: URI!
+  "Identifies the date and time when the release was created."
+  publishedAt: DateTime
+}
+
+"The connection type for Issue."
+type IssueConnection {
+  "Identifies the total count of items in the connection."
+  totalCount: Int!
+}
+
+"The possible states of an issue."
+enum IssueState {
+  "An issue that is still open."
+  OPEN
+  "An issue that has been closed."
+  CLOSED
+}

@@ -1,0 +1,43 @@
+{
+  // The "without zodql" alternatives are type-checked separately from the rest
+  // of the examples because they include machine-generated code (codegen's
+  // ./codegen/gql/, gql.tada's graphql-env.d.ts, and Zeus's ./zeus/). Generated
+  // files routinely declare unused locals/parameters, so those two checks are
+  // relaxed here; everything else stays as strict as the sibling examples.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // `strict` stays on, but the extra-strict flags the rest of the repo enables
+    // are relaxed here: machine-generated clients (Zeus's ./zeus/ in particular)
+    // routinely declare unused locals, index into records/arrays without guards,
+    // and rely on optional-vs-undefined equivalence. These are demonstration
+    // files, not library code, so we relax the add-on checks rather than patch
+    // generated output by hand.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitReturns": false,
+    // graphql-codegen's client-preset emits extensionless, bundler-style imports
+    // (and Zeus/gql.tada output is likewise bundler-oriented), so type-check this
+    // subtree with "bundler" resolution — how these tools' output is meant to be
+    // consumed — rather than the repo-wide "nodenext".
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // The generated code doesn't reference the library, so no package-name path.
+    "paths": {},
+    // Editor integration for gql.tada: the language-service plugin that gives
+    // inline types/diagnostics on `graphql(...)` documents, and the source for
+    // `pnpm gen:gql-tada` (which reads `schema` + `tadaOutputLocation` here to
+    // regenerate ./gql-tada/graphql-env.d.ts). `tsc` ignores `plugins`.
+    "plugins": [
+      {
+        "name": "@0no-co/graphqlsp",
+        "schema": "./schema.graphql",
+        "tadaOutputLocation": "./gql-tada/graphql-env.d.ts"
+      }
+    ]
+  },
+  "include": ["./**/*.ts"],
+  // Override the base config's exclude (which excludes this very directory).
+  "exclude": []
+}
