@@ -1,6 +1,6 @@
 import z from "zod";
-import { zodqlField } from "../ZodqlFieldBuilder.js";
-import { zodql, zodqlFragment } from "../ZodqlBuilder.js";
+import { zodqlField } from "../zodql-field-builder.js";
+import { zodql, zodqlFragment } from "../zodql-builder.js";
 import { normalizeIndentation } from "../testing/normalizeIndentation.js";
 
 describe("regression tests", () => {

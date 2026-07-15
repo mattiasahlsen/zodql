@@ -1,7 +1,7 @@
 import z from "zod";
 import { hasTypename } from "./hasTypename.js";
-import { zodqlField } from "../ZodqlFieldBuilder.js";
-import { zodql, zodqlFragment } from "../ZodqlBuilder.js";
+import { zodqlField } from "../zodql-field-builder.js";
+import { zodql, zodqlFragment } from "../zodql-builder.js";
 import { expectTypeof } from "../testing/assertType.js";
 
 type Cat = { __typename: "Cat"; meow: boolean };
