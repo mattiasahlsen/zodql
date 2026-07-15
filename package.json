@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "example:github-list-files": "tsx --tsconfig examples/tsconfig.json examples/github-list-files/main.ts",
+    "example:github-repo-overview": "tsx --tsconfig examples/tsconfig.json examples/github-repo-overview/main.ts",
     "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript && pnpm run verify:docs",
     "build": "pnpm run build:lint && pnpm run build:format && pnpm run build:typescript && pnpm run build:docs",
     "test": "vitest run --coverage",
