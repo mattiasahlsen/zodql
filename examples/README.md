@@ -13,9 +13,9 @@ pnpm build
 
 ## Available examples
 
-| Example                                            | Description                                                            | Run                                                              |
-| -------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [github-list-files](./github-list-files/README.md) | List every file on a branch of a GitHub repository via GraphQL.       | `GITHUB_TOKEN=… pnpm example:github-list-files <owner>/<repo>`   |
+| Example                                                   | Description                                                                   | Run                                                                |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [github-repo-overview](./github-repo-overview/README.md) | Fetch a GitHub repository's overview (stars, license, issues, …) via GraphQL. | `GITHUB_TOKEN=… pnpm example:github-repo-overview <owner>/<repo>` |
 
 See each example's README for prerequisites (such as API tokens) and usage.
 

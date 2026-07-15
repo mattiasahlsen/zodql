@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es2022",
     "lib": ["es2022"],
-    "types": ["node"],
+    "types": ["vitest/globals", "node"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "isolatedModules": true,
