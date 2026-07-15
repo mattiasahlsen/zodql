@@ -201,5 +201,4 @@ Every public export of the package, with links to the guide sections that use it
 | `ZodqlQueryFragment` | A fragment definition created by `zodqlFragment()`. | [Fragments](#fragments) | [types.ts]({{REPO_BLOB}}/src/types.ts) |
 | `ZodqlClient` | Client returned by `buildZodqlClient()`; runs `request()`. | [Client](#client), [Axios-based client](#axios-based-client) | [client.ts]({{REPO_BLOB}}/src/client.ts) |
 | `ZodqlHttpClient` | The HTTP transport interface a client wraps. | [Client](#client), [Axios-based client](#axios-based-client) | [client.ts]({{REPO_BLOB}}/src/client.ts) |
-| `ZodqlClientBuilder` | Factory type: a `ZodqlHttpClient` transport in, a `ZodqlClient` out. | [Client](#client) | [client.ts]({{REPO_BLOB}}/src/client.ts) |
 | `ZodqlResponseData` | Parsed response shape: `{ data, extensions?, errors? }`. | [Response Validation](#response-validation) | [client.ts]({{REPO_BLOB}}/src/client.ts) |

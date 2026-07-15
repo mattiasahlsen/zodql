@@ -61,24 +61,33 @@ function codeBlock(language: string, content: string): string {
   return `\`\`\`${language}\n${content.trim()}\n\`\`\``;
 }
 
-// Derives the GitHub blob base URL (e.g. https://github.com/owner/repo/blob/main)
-// from package.json's `repository` field. File links in the README are built
-// from this so they resolve identically on GitHub and on npmjs.com — npm's
-// rewriting of *relative* links to the repo is unreliable, so we emit absolute
-// URLs instead.
+// Derives the GitHub blob base URL from package.json's `repository` and
+// `version` fields, e.g. https://github.com/owner/repo/blob/v0.2.0. File links
+// in the README are built from this so they:
+//   - resolve identically on GitHub and on npmjs.com — npm's rewriting of
+//     *relative* links to the repo is unreliable, so we emit absolute URLs; and
+//   - are pinned to the `v{version}` release tag rather than a moving branch, so
+//     a README read at a given version links to the source as it was at that
+//     version. The `version` npm script regenerates the README during the
+//     changesets version bump, and `changeset publish` creates the matching tag,
+//     so the published README and its links always agree.
 function repoBlobBaseUrl(rootDir: string): string {
   const pkg = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf-8")) as {
     repository?: { url?: string } | string;
+    version?: string;
   };
   const rawUrl = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
   if (!rawUrl) {
     throw new Error("package.json must define a `repository.url` to build README file links");
   }
+  if (!pkg.version) {
+    throw new Error("package.json must define a `version` to pin README file links to a release tag");
+  }
   const httpsUrl = rawUrl
     .replace(/^git\+/, "")
     .replace(/\.git$/, "")
     .replace(/^git:\/\//, "https://");
-  return `${httpsUrl}/blob/main`;
+  return `${httpsUrl}/blob/v${pkg.version}`;
 }
 
 // Imports the example module and returns the query string of its
