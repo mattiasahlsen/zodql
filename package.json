@@ -30,7 +30,7 @@
     "build:format": "prettier --write '**/*.ts'",
     "verify:format": "prettier --check '**/*.ts'",
     "changeset": "changeset",
-    "version": "changeset version && pnpm run build:docs",
+    "version": "changeset version",
     "release": "pnpm run build && changeset publish",
     "prepublishOnly": "pnpm run build"
   },

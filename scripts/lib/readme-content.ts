@@ -1,10 +1,9 @@
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
 
 export async function generateReadmeContent(rootDir: string): Promise<string> {
   const template = readFileSync(join(rootDir, "README_TEMPLATE.md"), "utf-8");
-  const repoBlobBase = repoBlobBaseUrl(rootDir);
 
   const exampleNames = collectPlaceholderNames(template, "EXAMPLE");
   const queryNames = collectPlaceholderNames(template, "QUERY");
@@ -28,15 +27,9 @@ export async function generateReadmeContent(rootDir: string): Promise<string> {
   // or the literal `` `$` ``) are inserted verbatim instead of being interpreted
   // as `String.prototype.replace` special patterns such as `` $` `` (which would
   // splice in the surrounding template).
-  readme = readme.replaceAll("{{REPO_BLOB}}", () => repoBlobBase);
-
   for (const name of exampleNames) {
-    const relPath = `examples/readme/${name}.ts`;
-    const source = readFileSync(join(rootDir, relPath), "utf-8");
-    // Each example is a complete, compiling file — link back to it so readers
-    // can open the exact source the snippet is generated from.
-    const block = `${codeBlock("typescript", source)}\n\n_Source: [${relPath}](${repoBlobBase}/${relPath})_`;
-    readme = readme.replaceAll(`{{EXAMPLE:${name}}}`, () => block);
+    const source = readFileSync(join(rootDir, "examples", "readme", `${name}.ts`), "utf-8");
+    readme = readme.replaceAll(`{{EXAMPLE:${name}}}`, () => codeBlock("typescript", source));
   }
 
   for (const name of queryNames) {
@@ -44,7 +37,7 @@ export async function generateReadmeContent(rootDir: string): Promise<string> {
     readme = readme.replaceAll(`{{QUERY:${name}}}`, () => codeBlock("graphql", queryString));
   }
 
-  validateApiReference(readme, rootDir, repoBlobBase);
+  validateApiReference(readme, rootDir);
 
   return readme;
 }
@@ -59,35 +52,6 @@ function collectPlaceholderNames(template: string, kind: "EXAMPLE" | "QUERY"): s
 
 function codeBlock(language: string, content: string): string {
   return `\`\`\`${language}\n${content.trim()}\n\`\`\``;
-}
-
-// Derives the GitHub blob base URL from package.json's `repository` and
-// `version` fields, e.g. https://github.com/owner/repo/blob/v0.2.0. File links
-// in the README are built from this so they:
-//   - resolve identically on GitHub and on npmjs.com — npm's rewriting of
-//     *relative* links to the repo is unreliable, so we emit absolute URLs; and
-//   - are pinned to the `v{version}` release tag rather than a moving branch, so
-//     a README read at a given version links to the source as it was at that
-//     version. The `version` npm script regenerates the README during the
-//     changesets version bump, and `changeset publish` creates the matching tag,
-//     so the published README and its links always agree.
-function repoBlobBaseUrl(rootDir: string): string {
-  const pkg = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf-8")) as {
-    repository?: { url?: string } | string;
-    version?: string;
-  };
-  const rawUrl = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
-  if (!rawUrl) {
-    throw new Error("package.json must define a `repository.url` to build README file links");
-  }
-  if (!pkg.version) {
-    throw new Error("package.json must define a `version` to pin README file links to a release tag");
-  }
-  const httpsUrl = rawUrl
-    .replace(/^git\+/, "")
-    .replace(/\.git$/, "")
-    .replace(/^git:\/\//, "https://");
-  return `${httpsUrl}/blob/v${pkg.version}`;
 }
 
 // Imports the example module and returns the query string of its
@@ -114,9 +78,9 @@ async function importExampleQuery(rootDir: string, name: string): Promise<string
 
 // Keeps the hand-written "## API Reference" table honest without regenerating
 // it: the table's rows must name exactly the public exports of `src/index.ts`
-// (no missing or stale entries), every in-page section link must resolve to a
-// real heading, and every source link must point at a file that exists.
-function validateApiReference(readme: string, rootDir: string, repoBlobBase: string): void {
+// (no missing or stale entries), and every in-page section link must resolve to
+// a real heading.
+function validateApiReference(readme: string, rootDir: string): void {
   const section = extractSection(readme, "API Reference");
   if (!section) {
     throw new Error("README_TEMPLATE.md must contain an `## API Reference` section");
@@ -149,12 +113,6 @@ function validateApiReference(readme: string, rootDir: string, repoBlobBase: str
   for (const match of section.matchAll(/\]\(#([\w-]+)\)/g)) {
     if (!headingSlugs.has(match[1]!)) {
       throw new Error(`API Reference links to #${match[1]} but no heading produces that anchor`);
-    }
-  }
-
-  for (const match of section.matchAll(new RegExp(`\\]\\(${escapeRegExp(repoBlobBase)}/([^)]+)\\)`, "g"))) {
-    if (!existsSync(join(rootDir, match[1]!))) {
-      throw new Error(`API Reference source link points at ${match[1]} which does not exist`);
     }
   }
 }

@@ -92,8 +92,6 @@ export async function fetchUser() {
 }
 ```
 
-_Source: [examples/readme/quick-start.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/quick-start.ts)_
-
 The compiled GraphQL query:
 
 ```graphql
@@ -138,8 +136,6 @@ export async function fetchViewer() {
 }
 ```
 
-_Source: [examples/readme/client-fetch.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/client-fetch.ts)_
-
 ### Axios-based client
 
 Type the transport as `ZodqlHttpClient<Response, RequestConfig>` to keep the raw response and per-request config fully typed:
@@ -173,8 +169,6 @@ export async function fetchViewer() {
   return data.viewer;
 }
 ```
-
-_Source: [examples/readme/client-axios.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/client-axios.ts)_
 
 ## Fragments
 
@@ -211,8 +205,6 @@ export default mediaQuery;
 // The fragment's fields are optional on the parsed result
 export type Media = z.infer<typeof mediaQuery.schema>["media"];
 ```
-
-_Source: [examples/readme/with-fragment.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/with-fragment.ts)_
 
 Compiled query:
 
@@ -261,8 +253,6 @@ export default nodeQuery;
 // The fragment's fields are required on the parsed result
 export type Node = z.infer<typeof nodeQuery.schema>["node"];
 ```
-
-_Source: [examples/readme/with-required-fragment.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/with-required-fragment.ts)_
 
 Compiled query:
 
@@ -316,8 +306,6 @@ export default mediaQuery;
 export type Media = z.infer<typeof mediaQuery.schema>["media"];
 ```
 
-_Source: [examples/readme/with-union-fragments.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/with-union-fragments.ts)_
-
 Compiled query:
 
 ```graphql
@@ -363,8 +351,6 @@ export default zodql(
 ).compile();
 ```
 
-_Source: [examples/readme/inline-fragment.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/inline-fragment.ts)_
-
 Compiled query:
 
 ```graphql
@@ -407,8 +393,6 @@ export default zodql(
 ).compile();
 ```
 
-_Source: [examples/readme/non-inline-fragment.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/non-inline-fragment.ts)_
-
 Compiled query:
 
 ```graphql
@@ -449,8 +433,6 @@ export default zodql(
   })
 ).compile();
 ```
-
-_Source: [examples/readme/field-arguments.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/field-arguments.ts)_
 
 Compiled query:
 
@@ -516,8 +498,6 @@ export async function createUser() {
 }
 ```
 
-_Source: [examples/readme/query-variables.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/query-variables.ts)_
-
 Compiled query:
 
 ```graphql
@@ -564,8 +544,6 @@ export async function fetchViewer() {
 }
 ```
 
-_Source: [examples/readme/response-validation.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/response-validation.ts)_
-
 ## Field Aliases
 
 `asAliasFor()` queries the same field multiple times under different aliases, e.g. with different arguments:
@@ -586,8 +564,6 @@ export default zodql(
   })
 ).compile();
 ```
-
-_Source: [examples/readme/field-aliases.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/field-aliases.ts)_
 
 Compiled query:
 
@@ -631,8 +607,6 @@ export type UserResponse = z.infer<typeof userQuery.schema>;
 // => { user: { id: string; name: string } }
 ```
 
-_Source: [examples/readme/typescript-support.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/examples/readme/typescript-support.ts)_
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -647,26 +621,26 @@ Mattias Ahlsén - mattias.ahlsen@gmail.com
 
 ## API Reference
 
-Every public export of the package, with links to the guide sections that use it (most relevant first) and to its source. Full signatures and JSDoc are available in your editor via the bundled TypeScript declarations.
+Every public export of the package, with links to the guide sections that use it (most relevant first). Full signatures and JSDoc are available in your editor via the bundled TypeScript declarations.
 
 ### Functions
 
-| Export | Summary | Guide | Source |
-| --- | --- | --- | --- |
-| `zodql()` | Compile a Zod schema into a GraphQL query/mutation builder. | [Quick Start](#quick-start), [Query Variables](#query-variables), [Response Validation](#response-validation), [TypeScript Support](#typescript-support) | [ZodqlBuilder.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/ZodqlBuilder.ts) |
-| `zodqlField()` | Configure a field's arguments, fragments, and aliases. | [Field Arguments](#field-arguments), [Fragments](#fragments), [Field Aliases](#field-aliases), [Quick Start](#quick-start) | [ZodqlFieldBuilder.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/ZodqlFieldBuilder.ts) |
-| `zodqlFragment()` | Define a reusable named or inline fragment. | [Fragments](#fragments), [Non-Inline Fragment](#non-inline-fragment), [withUnionFragments](#withunionfragments) | [ZodqlBuilder.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/ZodqlBuilder.ts) |
-| `buildZodqlClient()` | Wrap an HTTP transport in a typed GraphQL client. | [Client](#client), [Fetch-based client](#fetch-based-client), [Axios-based client](#axios-based-client), [Response Validation](#response-validation) | [client.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/client.ts) |
-| `hasTypename()` | Narrow a union/interface result by its `__typename`. | [withUnionFragments](#withunionfragments), [Supported GraphQL Features](#supported-graphql-features) | [hasTypename.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/utils/hasTypename.ts) |
+| Export | Summary | Guide |
+| --- | --- | --- |
+| `zodql()` | Compile a Zod schema into a GraphQL query/mutation builder. | [Quick Start](#quick-start), [Query Variables](#query-variables), [Response Validation](#response-validation), [TypeScript Support](#typescript-support) |
+| `zodqlField()` | Configure a field's arguments, fragments, and aliases. | [Field Arguments](#field-arguments), [Fragments](#fragments), [Field Aliases](#field-aliases), [Quick Start](#quick-start) |
+| `zodqlFragment()` | Define a reusable named or inline fragment. | [Fragments](#fragments), [Non-Inline Fragment](#non-inline-fragment), [withUnionFragments](#withunionfragments) |
+| `buildZodqlClient()` | Wrap an HTTP transport in a typed GraphQL client. | [Client](#client), [Fetch-based client](#fetch-based-client), [Axios-based client](#axios-based-client), [Response Validation](#response-validation) |
+| `hasTypename()` | Narrow a union/interface result by its `__typename`. | [withUnionFragments](#withunionfragments), [Supported GraphQL Features](#supported-graphql-features) |
 
 ### Types
 
-| Export | Summary | Guide | Source |
-| --- | --- | --- | --- |
-| `ZodqlOptions` | Options for `zodql()`, e.g. `operationName`. | [Supported GraphQL Features](#supported-graphql-features) | [ZodqlBuilder.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/ZodqlBuilder.ts) |
-| `ZodqlQuery` | Output of `compile()`: query string, variables, and response schema. | [Response Validation](#response-validation), [TypeScript Support](#typescript-support), [Quick Start](#quick-start) | [types.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/types.ts) |
-| `ZodqlQueryVariable` | A declared operation variable — GraphQL type name plus Zod schema. | [Query Variables](#query-variables) | [types.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/types.ts) |
-| `ZodqlQueryFragment` | A fragment definition created by `zodqlFragment()`. | [Fragments](#fragments) | [types.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/types.ts) |
-| `ZodqlClient` | Client returned by `buildZodqlClient()`; runs `request()`. | [Client](#client), [Axios-based client](#axios-based-client) | [client.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/client.ts) |
-| `ZodqlHttpClient` | The HTTP transport interface a client wraps. | [Client](#client), [Axios-based client](#axios-based-client) | [client.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/client.ts) |
-| `ZodqlResponseData` | Parsed response shape: `{ data, extensions?, errors? }`. | [Response Validation](#response-validation) | [client.ts](https://github.com/mattiasahlsen/zodql/blob/v0.2.0/src/client.ts) |
+| Export | Summary | Guide |
+| --- | --- | --- |
+| `ZodqlOptions` | Options for `zodql()`, e.g. `operationName`. | [Supported GraphQL Features](#supported-graphql-features) |
+| `ZodqlQuery` | Output of `compile()`: query string, variables, and response schema. | [Response Validation](#response-validation), [TypeScript Support](#typescript-support), [Quick Start](#quick-start) |
+| `ZodqlQueryVariable` | A declared operation variable — GraphQL type name plus Zod schema. | [Query Variables](#query-variables) |
+| `ZodqlQueryFragment` | A fragment definition created by `zodqlFragment()`. | [Fragments](#fragments) |
+| `ZodqlClient` | Client returned by `buildZodqlClient()`; runs `request()`. | [Client](#client), [Axios-based client](#axios-based-client) |
+| `ZodqlHttpClient` | The HTTP transport interface a client wraps. | [Client](#client), [Axios-based client](#axios-based-client) |
+| `ZodqlResponseData` | Parsed response shape: `{ data, extensions?, errors? }`. | [Response Validation](#response-validation) |
