@@ -9,5 +9,6 @@ export default defineConfig({
       reporter: ["lcovonly"],
       reportsDirectory: "test-reports",
     },
+    include: ["src/**/*.test.ts", "examples/**/*.test.ts"],
   },
 });

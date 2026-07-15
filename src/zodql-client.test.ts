@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { buildZodqlClient, type ZodqlHttpClient } from "./client.js";
-import { zodql } from "./ZodqlBuilder.js";
-import { zodqlField } from "./ZodqlFieldBuilder.js";
+import { buildZodqlClient, type ZodqlHttpClient } from "./zodql-client.js";
+import { zodql } from "./zodql-builder.js";
+import { zodqlField } from "./zodql-field-builder.js";
 import { vi } from "vitest";
 import type { AxiosResponse } from "axios";
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
