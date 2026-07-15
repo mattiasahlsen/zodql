@@ -165,18 +165,6 @@ This library is written in TypeScript and provides full type inference for all o
 
 {{EXAMPLE:typescript-support}}
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-MIT
-
-## Author
-
-Mattias Ahlsén - mattias.ahlsen@gmail.com
-
 ## API Reference
 
 Every public export of the package, with links to the guide sections that use it (most relevant first). Full signatures and JSDoc are available in your editor via the bundled TypeScript declarations.
@@ -202,3 +190,15 @@ Every public export of the package, with links to the guide sections that use it
 | `ZodqlClient` | Client returned by `buildZodqlClient()`; runs `request()`. | [Client](#client), [Axios-based client](#axios-based-client) |
 | `ZodqlHttpClient` | The HTTP transport interface a client wraps. | [Client](#client), [Axios-based client](#axios-based-client) |
 | `ZodqlResponseData` | Parsed response shape: `{ data, extensions?, errors? }`. | [Response Validation](#response-validation) |
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT
+
+## Author
+
+Mattias Ahlsén - mattias.ahlsen@gmail.com
