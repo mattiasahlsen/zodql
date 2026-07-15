@@ -1,15 +1,9 @@
-import { readFileSync, readdirSync, mkdtempSync, rmSync } from "fs";
-import { execSync } from "child_process";
-import { tmpdir } from "os";
+import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
 
 export async function generateReadmeContent(rootDir: string): Promise<string> {
   const template = readFileSync(join(rootDir, "README_TEMPLATE.md"), "utf-8");
-
-  if (!template.includes("{{API_DOCS}}")) {
-    throw new Error("README_TEMPLATE.md must contain the {{API_DOCS}} placeholder");
-  }
 
   const exampleNames = collectPlaceholderNames(template, "EXAMPLE");
   const queryNames = collectPlaceholderNames(template, "QUERY");
@@ -43,10 +37,9 @@ export async function generateReadmeContent(rootDir: string): Promise<string> {
     readme = readme.replaceAll(`{{QUERY:${name}}}`, () => codeBlock("graphql", queryString));
   }
 
-  console.log("Generating API documentation...");
-  const apiDocs = generateApiDocs(rootDir);
+  validateApiReference(readme, rootDir);
 
-  return readme.replace("{{API_DOCS}}", () => apiDocs);
+  return readme;
 }
 
 function collectPlaceholderNames(template: string, kind: "EXAMPLE" | "QUERY"): string[] {
@@ -83,19 +76,85 @@ async function importExampleQuery(rootDir: string, name: string): Promise<string
   return (compiledQuery as { queryString: string }).queryString;
 }
 
-// Runs TypeDoc (configured by `typedoc.json`) into a throwaway directory and
-// returns the generated Markdown. TypeDoc only writes to disk, so it's pointed
-// at a temp dir that is read back and removed rather than left in the tree.
-function generateApiDocs(rootDir: string): string {
-  const outDir = mkdtempSync(join(tmpdir(), "zodql-typedoc-"));
-  try {
-    execSync(`npx --no-install typedoc --out "${outDir}"`, {
-      cwd: rootDir,
-      encoding: "utf-8",
-      stdio: ["ignore", "inherit", "inherit"],
-    });
-    return readFileSync(join(outDir, "README.md"), "utf-8").trim();
-  } finally {
-    rmSync(outDir, { recursive: true, force: true });
+// Keeps the hand-written "## API Reference" table honest without regenerating
+// it: the table's rows must name exactly the public exports of `src/index.ts`
+// (no missing or stale entries), and every in-page section link must resolve to
+// a real heading.
+function validateApiReference(readme: string, rootDir: string): void {
+  const section = extractSection(readme, "API Reference");
+  if (!section) {
+    throw new Error("README_TEMPLATE.md must contain an `## API Reference` section");
   }
+
+  const documented = new Set<string>();
+  for (const row of section.split("\n")) {
+    if (!row.startsWith("|")) continue;
+    const firstCell = row.split("|")[1] ?? "";
+    const match = firstCell.match(/`([A-Za-z_][\w]*)(?:\(\))?`/);
+    if (match) documented.add(match[1]!);
+  }
+
+  const exported = collectExports(rootDir);
+
+  const missing = [...exported].filter((name) => !documented.has(name));
+  const stale = [...documented].filter((name) => !exported.has(name));
+  if (missing.length > 0 || stale.length > 0) {
+    const problems = [
+      missing.length > 0 && `missing from the table: ${missing.join(", ")}`,
+      stale.length > 0 && `in the table but not exported from src/index.ts: ${stale.join(", ")}`,
+    ].filter(Boolean);
+    throw new Error(`API Reference table is out of sync with src/index.ts — ${problems.join("; ")}`);
+  }
+
+  const headingSlugs = new Set<string>();
+  for (const match of readme.matchAll(/^#{1,6}\s+(.*)$/gm)) {
+    headingSlugs.add(slugify(match[1]!));
+  }
+  for (const match of section.matchAll(/\]\(#([\w-]+)\)/g)) {
+    if (!headingSlugs.has(match[1]!)) {
+      throw new Error(`API Reference links to #${match[1]} but no heading produces that anchor`);
+    }
+  }
+}
+
+// Reads the exported symbol names (values and types) from src/index.ts. The
+// entry point re-exports everything through `export { … } from` / `export type
+// { … } from` blocks, so the names can be read straight out of the braces.
+function collectExports(rootDir: string): Set<string> {
+  const source = readFileSync(join(rootDir, "src", "index.ts"), "utf-8");
+  const names = new Set<string>();
+  for (const match of source.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}\s*from/g)) {
+    for (const raw of match[1]!.split(",")) {
+      const name = raw
+        .trim()
+        .replace(/^type\s+/, "")
+        .split(/\s+as\s+/)
+        .pop()!
+        .trim();
+      if (name) names.add(name);
+    }
+  }
+  return names;
+}
+
+function extractSection(readme: string, heading: string): string | null {
+  const start = readme.search(new RegExp(`^##\\s+${escapeRegExp(heading)}\\s*$`, "m"));
+  if (start === -1) return null;
+  const rest = readme.slice(start);
+  const next = rest.slice(1).search(/^##\s+/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+// Mirrors GitHub's heading-anchor slugging: lowercase, drop characters that are
+// not word/space/hyphen, then turn runs of whitespace into single hyphens.
+function slugify(heading: string): string {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

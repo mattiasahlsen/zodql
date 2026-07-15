@@ -1,15 +1,9 @@
 // Main builder functions
-export { zodql, zodqlFragment, type ZodqlOptions } from "./ZodqlBuilder.js";
-export { zodqlField } from "./ZodqlFieldBuilder.js";
+export { zodql, zodqlFragment, type ZodqlOptions } from "./zodql-builder.js";
+export { zodqlField } from "./zodql-field-builder.js";
 
 // Client exports
-export {
-  buildZodqlClient,
-  type ZodqlClient,
-  type ZodqlClientBuilder,
-  type ZodqlHttpClient,
-  type ZodqlResponseData,
-} from "./client.js";
+export { buildZodqlClient, type ZodqlClient, type ZodqlHttpClient, type ZodqlResponseData } from "./zodql-client.js";
 
 // Utility exports
 export { hasTypename } from "./utils/hasTypename.js";
