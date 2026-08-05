@@ -26,6 +26,15 @@ It demonstrates a realistic zodql workflow:
 - **validating** the GraphQL response against the query's Zod schema, and
 - handling GraphQL errors, which are returned in the response body rather than thrown.
 
+## How this looks without zodql
+
+Curious how you'd write the same query with the mainstream GraphQL + TypeScript
+tooling? [`COMPARISON.md`](./COMPARISON.md) re-implements this exact operation
+three more ways — **GraphQL Code Generator** (`client-preset`), **gql.tada**, and
+**GraphQL Zeus** — and lays them out side by side with a trade-offs table. All
+four are runnable ([`alternatives/`](./alternatives/)) and compile to the same
+GraphQL; the comparison focuses on what differs, especially runtime validation.
+
 ## Prerequisites
 
 1. **Build the library** (the example imports `zodql`, which resolves to the

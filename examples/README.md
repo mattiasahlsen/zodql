@@ -15,7 +15,7 @@ pnpm build
 
 | Example                                                   | Description                                                                   | Run                                                                |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [github-repo-overview](./github-repo-overview/README.md) | Fetch a GitHub repository's overview (stars, license, issues, …) via GraphQL. | `GITHUB_TOKEN=… pnpm example:github-repo-overview <owner>/<repo>` |
+| [github-repo-overview](./github-repo-overview/README.md) | Fetch a GitHub repository's overview (stars, license, issues, …) via GraphQL. Includes a [side-by-side comparison](./github-repo-overview/COMPARISON.md) with graphql-codegen, gql.tada, and Zeus. | `GITHUB_TOKEN=… pnpm example:github-repo-overview <owner>/<repo>` |
 
 See each example's README for prerequisites (such as API tokens) and usage.
 
