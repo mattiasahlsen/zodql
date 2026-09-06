@@ -22,23 +22,45 @@ type FieldInfo = {
 };
 
 /**
- * Strip the wrapper schemas (optional / nullable / default / array) that don't
- * affect the emitted GraphQL selection, returning the inner schema.
+ * Strip the wrapper schemas (optional / nullable / default / array / pipe)
+ * that don't affect the emitted GraphQL selection, returning the inner schema.
  *
  * Wrapper layers can be nested in any combination (e.g. an optional array of
  * nullable objects), so this walks inward until it hits a schema that isn't
  * one of the recognized wrapper types.
+ *
+ * Before unwrapping any layer, this checks whether zodql's own field metadata
+ * (attached by `zodqlField().toSchema(...)`) lives directly on it and stops
+ * there if so — `toSchema()` can attach metadata to a `pipe`/`transform` node
+ * itself (its union-fragment support does so internally, via `.transform()`),
+ * so unwrapping past it unconditionally would lose that metadata.
+ *
+ * `.transform()` and `z.preprocess()` both desugar to a `pipe` node in Zod 4
+ * (`def.in`/`def.out`), but in opposite arrangements: `.transform()` puts the
+ * meaningful schema in `def.in` (with a dead-end `transform` leaf in
+ * `def.out`), while `z.preprocess()` puts it in `def.out` (with the dead-end
+ * leaf in `def.in`). This resolves `def.out` first and falls back to `def.in`
+ * when that bottoms out at a `transform` leaf, which handles both cases (and
+ * arbitrary chains of either) while still preferring a plain `.pipe(a, b)`'s
+ * output schema, matching `parse()` semantics. `.refine()`/`.superRefine()`
+ * need no special handling here: they don't change `def.type`, so a refined
+ * object still falls through to the plain-object case in {@link getFieldInfo}.
  *
  * @private
  */
 function unwrapSchema(schema: any): any {
   let current = schema;
   while (current && current.def) {
+    if (current[ZODQL_FIELD_CORE_SHAPE_KEY] !== undefined) break;
+
     const type = current.def.type;
     if (type === "optional" || type === "nullable" || type === "default") {
       current = current.def.innerType;
     } else if (type === "array") {
       current = current.def.element;
+    } else if (type === "pipe") {
+      const out = unwrapSchema(current.def.out);
+      current = out?.def?.type === "transform" ? unwrapSchema(current.def.in) : out;
     } else {
       break;
     }
