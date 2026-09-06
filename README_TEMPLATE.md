@@ -34,6 +34,7 @@ zodql covers the parts of the GraphQL query language you reach for most:
 - 📎 **Inline fragments** - Select type-specific fields with `... on Type { … }`
 - 🔱 **Unions and interfaces** - Model a union or interface field as a discriminated union on `__typename` with `withUnionFragments()`
 - 🔖 **`__typename`** - Automatically added where it's needed to discriminate union and interface results
+- 🔄 **`.transform()`, `.refine()`, and `z.preprocess()`** - Wrap a field's schema in any of these and the query is still built from its underlying object shape
 
 ## Installation
 
@@ -148,6 +149,32 @@ Compiled query:
 `parseResponse()` validates the response's `data` field against the query's schema and resolves to `{ data, extensions?, errors? }`. `extensions` and `errors` are passed through unvalidated, so GraphQL errors returned in a 200 response are never thrown automatically — check them yourself:
 
 {{EXAMPLE:response-validation}}
+
+## Transforms, Refinements, and Preprocessing
+
+A field's schema can be wrapped in `.transform()`, `.refine()`/`.superRefine()`, or `z.preprocess()` — the query is still compiled from the underlying object's fields, and the wrapper's parsing/transform behavior still applies when the response is validated:
+
+```ts
+const userSchema = z.object({
+  user: zodqlField()
+    .withArguments({ id: "$userId" })
+    .toSchema(z.object({ name: z.string(), createdAt: z.string() }))
+    .transform((user) => ({ ...user, createdAt: new Date(user.createdAt) })),
+});
+```
+
+> [!NOTE]
+> `.refine()`/`.superRefine()` must be applied to the schema passed *into* `toSchema()`, not to `toSchema()`'s result — unlike `.transform()`, they clone the schema rather than wrap it, so applying them afterward silently drops the field's arguments, alias, and fragments:
+>
+> ```ts
+> // Correct: refine before toSchema()
+> zodqlField().withArguments({ id: "$userId" }).toSchema(
+>   z.object({ age: z.number() }).refine((user) => user.age >= 0)
+> );
+>
+> // Wrong: refine after toSchema() drops withArguments()
+> zodqlField().withArguments({ id: "$userId" }).toSchema(z.object({ age: z.number() })).refine((user) => user.age >= 0);
+> ```
 
 ## Field Aliases
 
