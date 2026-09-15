@@ -634,6 +634,131 @@ export type UserResponse = z.infer<typeof userQuery.schema>;
 // => { user: { id: string; name: string } }
 ```
 
+## Codegen (optional)
+
+zodql needs no build step, and everything above works without one. But nothing in a hand-written schema checks that `name` exists on `Repository`, or that `description` is nullable — those mistakes surface as runtime parse failures.
+
+The optional `zodql-codegen` CLI closes that gap. It reads a GraphQL schema and emits one selection builder per type, so field names, scalar types, nullability and list-ness all come from the schema:
+
+```bash
+npx zodql-codegen --schema ./schema.graphql --out ./src/gql
+```
+
+It accepts SDL or the JSON result of an introspection query, and needs `graphql` installed (`npm install --save-dev graphql`).
+
+Each builder takes a "pick object" and builds **only its own type** — nested fields are built by their own builder and passed in, so no builder ever calls another:
+
+```typescript
+// The builders below are generated from a GraphQL schema by `zodql-codegen`.
+// They live wherever `--out` points; here that's the repository-overview
+// example's output directory.
+import { zodql, zodqlField } from "@mattiasahlsen/zodql";
+import { z } from "zod";
+import { buildQueryField } from "../github-repo-overview/generated/Query.js";
+import { buildRepositoryField } from "../github-repo-overview/generated/Repository.js";
+import { buildLanguageField } from "../github-repo-overview/generated/Language.js";
+import { buildIssueConnectionField } from "../github-repo-overview/generated/IssueConnection.js";
+
+const repository = buildRepositoryField({
+  name: true,
+  // `description` is `String` in the schema, so this is `string | null`.
+  description: true,
+  // Nested objects are built by their own builder and passed in.
+  primaryLanguage: buildLanguageField({ name: true }),
+  // A leaf can take any Zod schema instead of `true`, so validation beyond the
+  // GraphQL type system still works.
+  url: z.string().url(),
+}).extend({
+  // Aliases go through `.extend()`: the key is invented, so no generated type
+  // could check it. Everything inside the pick above *is* checked.
+  openIssues: zodqlField()
+    .asAliasFor("issues")
+    .withArguments({ states: "OPEN" })
+    .toSchema(buildIssueConnectionField({ totalCount: true })),
+});
+
+const query = zodql(
+  "query",
+  buildQueryField({
+    // Arguments on a real field stay inside the pick, so the field name is
+    // still checked against the schema.
+    repository: zodqlField().withArguments({ owner: "$owner", name: "$name" }).toSchema(repository),
+  }),
+  { operationName: "RepositoryOverview" }
+)
+  .defineVariables({
+    owner: { typeName: "String!", schema: z.string() },
+    name: { typeName: "String!", schema: z.string() },
+  })
+  .compile();
+
+export default query;
+```
+
+The compiled GraphQL query:
+
+```graphql
+query RepositoryOverview ($owner: String!, $name: String!) {
+  repository (owner: $owner, name: $name) {
+    name
+    description
+    primaryLanguage {
+      name
+    }
+    url
+    openIssues: issues (states: OPEN) {
+      totalCount
+    }
+  }
+}
+```
+
+Generated modules import nothing from each other: a selection's type is identified by a string-literal tag, so cyclic schemas are fine and TypeScript only loads the types you actually use. Use `--include <Type>` to generate just the reachable closure from a few roots rather than a whole large schema.
+
+### What stays checked, and what doesn't
+
+| | Checked against the schema? |
+| --- | --- |
+| Fields inside the pick object | yes |
+| Arguments on a real field, via `zodqlField().withArguments()` inside the pick | yes — the field name still is |
+| Aliases, added with `.extend()` | no — the key is invented, so nothing could check it |
+
+`.extend()` is the deliberate escape hatch. To close the gap it leaves, validate the compiled document against your schema in a test with `graphql`'s `validate()`.
+
+### Custom scalars
+
+The first run seeds a `scalars.ts` in the output directory and then never touches it again — it is yours to edit:
+
+```ts
+export const scalars = {
+  DateTime: z.iso.datetime(),
+  URI: z.string().url(),
+  // …
+} as const satisfies Record<ScalarName, z.ZodType>;
+```
+
+Because it is checked with `satisfies`, a scalar added to the schema later becomes a compile error here rather than silently parsing as a string.
+
+### Interfaces and unions
+
+Fields every implementor shares are picked directly; type-specific selections go under the reserved `__on` key and compile to inline fragments, with `__typename` added automatically:
+
+```ts
+const owner = buildRepositoryOwnerField({
+  login: true,
+  __on: {
+    User: buildUserField({ bio: true }),
+    Organization: buildOrganizationField({ description: true }),
+  },
+});
+```
+
+Pass `{ requireOne: true }` to reject a `__typename` that matches no branch; by default an unknown implementor parses with only the common fields, since a server can add one at any time.
+
+### Keeping output current
+
+Generated files carry a manifest, so a re-run removes only what a previous run wrote and never touches anything else in the directory. In CI, `zodql-codegen --check` reports drift and exits non-zero instead of writing.
+
 ## API Reference
 
 Every public export of the package, with links to the guide sections that use it (most relevant first). Full signatures and JSDoc are available in your editor via the bundled TypeScript declarations.

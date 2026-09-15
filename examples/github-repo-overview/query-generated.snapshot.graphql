@@ -1,0 +1,30 @@
+query RepositoryOverview ($owner: String!, $name: String!) {
+  repository (owner: $owner, name: $name) {
+    name
+    nameWithOwner
+    description
+    url
+    isPrivate
+    stargazerCount
+    forkCount
+    primaryLanguage {
+      name
+    }
+    licenseInfo {
+      name
+      spdxId
+    }
+    latestRelease {
+      name
+      tagName
+      url
+      publishedAt
+    }
+    openIssues: issues (states: OPEN) {
+      totalCount
+    }
+    closedIssues: issues (states: CLOSED) {
+      totalCount
+    }
+  }
+}

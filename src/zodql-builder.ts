@@ -161,23 +161,39 @@ function buildFieldLines(name: string, schema: any, indent: number): string[] {
   }
 
   for (const fragment of info.regularFragments) {
-    if (fragment.inline) {
-      lines.push(`${childPad}... on ${fragment.on} {`);
-      for (const [fieldName, fieldSchema] of Object.entries(fragment.schema.shape)) {
-        lines.push(...buildFieldLines(fieldName, fieldSchema, childIndent + 1));
-      }
-      lines.push(`${childPad}}`);
-    } else {
-      lines.push(`${childPad}...${fragment.name}`);
-    }
+    lines.push(...buildFragmentSpreadLines(fragment, childIndent));
   }
 
   if (info.unionFragments) {
     for (const fragment of info.unionFragments.fragments) {
-      lines.push(`${childPad}...${fragment.name}`);
+      lines.push(...buildFragmentSpreadLines(fragment, childIndent));
     }
   }
 
+  lines.push(`${pad}}`);
+  return lines;
+}
+
+/**
+ * Emit a fragment where it's attached to a field.
+ *
+ * An inline fragment spreads its fields directly into the parent selection
+ * (`... on Type { … }`); a named one is referenced (`...Name`) and defined
+ * separately by {@link buildFragmentDefinition}.
+ *
+ * @private
+ */
+function buildFragmentSpreadLines(fragment: ZodqlQueryFragment, indent: number): string[] {
+  const pad = INDENT_UNIT.repeat(indent);
+
+  if (!fragment.inline) {
+    return [`${pad}...${fragment.name}`];
+  }
+
+  const lines = [`${pad}... on ${fragment.on} {`];
+  for (const [fieldName, fieldSchema] of Object.entries(fragment.schema.shape)) {
+    lines.push(...buildFieldLines(fieldName, fieldSchema, indent + 1));
+  }
   lines.push(`${pad}}`);
   return lines;
 }
@@ -213,14 +229,15 @@ function collectFragments(shape: z.ZodRawShape): ZodqlQueryFragment[] {
       const info = getFieldInfo(fieldSchema);
       if (!info) continue;
 
-      for (const fragment of info.regularFragments) {
+      const attachedFragments = [...info.regularFragments, ...(info.unionFragments?.fragments ?? [])];
+
+      for (const fragment of attachedFragments) {
         if (!fragment.inline) addFragment(fragment);
       }
-      if (info.unionFragments) {
-        for (const fragment of info.unionFragments.fragments) addFragment(fragment);
-      }
 
-      for (const fragment of info.regularFragments) {
+      // An inline fragment has no definition of its own, but its selection can
+      // still reference named fragments that do need emitting.
+      for (const fragment of attachedFragments) {
         if (fragment.inline) visitShape(fragment.schema.shape);
       }
 
