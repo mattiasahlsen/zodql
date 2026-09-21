@@ -7,6 +7,8 @@ export default defineConfig({
       // Examples import the published package name (see the matching "paths"
       // entry in examples/tsconfig.json); resolve it to source so
       // examples/**/*.test.ts can run without a prior `pnpm build`.
+      // Order matters: the more specific subpath must come first.
+      "@mattiasahlsen/zodql/codegen": fileURLToPath(new URL("./src/codegen/index.ts", import.meta.url)),
       "@mattiasahlsen/zodql": fileURLToPath(new URL("./src/index.ts", import.meta.url)),
     },
   },

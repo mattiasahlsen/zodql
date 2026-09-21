@@ -19,6 +19,7 @@
     // Resolve the package name to the library source so examples typecheck and
     // run without a prior build (dist/ doesn't exist in CI's verify job).
     "paths": {
+      "@mattiasahlsen/zodql/codegen": ["../src/codegen/index.ts"],
       "@mattiasahlsen/zodql": ["../src/index.ts"]
     }
   },

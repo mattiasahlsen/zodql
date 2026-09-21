@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "files": [
+    "IssueConnection.ts",
+    "IssueState.ts",
+    "Language.ts",
+    "License.ts",
+    "Query.ts",
+    "Release.ts",
+    "Repository.ts",
+    "scalars.generated.ts"
+  ]
+}

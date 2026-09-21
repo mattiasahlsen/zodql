@@ -1,9 +1,32 @@
 import z from "zod";
 import type { ZodqlQueryFragment } from "./types.js";
 import { ALIAS_TARGET_KEY, FRAGMENTS_KEY, QUERY_ARGUMENTS_KEY, ZODQL_FIELD_CORE_SHAPE_KEY } from "./constants.js";
-import type { Merge, ObjectMerge } from "type-fest";
+import type { IsEqual, Merge, ObjectMerge } from "type-fest";
 
 type AsObject<T> = T extends {} ? T : never;
+
+/**
+ * The type of the schema `toSchema()` produces.
+ *
+ * When no fragments are attached, the result is the input schema itself: the
+ * runtime builds a fresh `z.object()` from the same shape, so keeping `Schema`
+ * (rather than widening to `z.ZodType`) is strictly more precise. It also
+ * matters for callers who rely on the schema staying a `ZodObject` — `.extend()`
+ * and friends, and any type-level tag carried in the object's `Config`.
+ *
+ * One caveat: that fresh `z.object()` doesn't carry the input's catchall, so a
+ * `z.strictObject()` or `z.looseObject()` passed in comes back typed as itself
+ * but behaving like a plain stripping object. The runtime has always done this;
+ * before this type existed the widened return simply hid it. Unknown keys are
+ * dropped from a GraphQL response either way, so it only matters if you were
+ * relying on `z.strictObject()` to *reject* them.
+ */
+type ToSchemaResult<Schema extends z.ZodObject, FragmentsType extends {}> =
+  IsEqual<FragmentsType, {}> extends true
+    ? Schema
+    : undefined extends FragmentsType
+      ? Schema | z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>>
+      : z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>>;
 
 interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
   /**
@@ -66,8 +89,12 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
    * automatically added to the compiled query, and at parse time its value
    * determines which fragment schema is applied to the rest of the fields —
    * any fields belonging to a non-matching fragment are stripped from the
-   * parsed result. Fragments passed here must use `name` (not `inline: true`),
-   * and each should target a different type via `on`.
+   * parsed result. Each fragment should target a different type via `on`.
+   *
+   * A fragment may be named or `inline: true`, and the two can be mixed. Prefer
+   * `inline: true` when the selection isn't shared: a named fragment is emitted
+   * once per name across the whole document, so attaching two *different*
+   * selections under the same name would silently emit only the first.
    *
    * @param fragments - A non-empty array of ZodqlQueryFragments, each targeting a different type via `on`.
    * @param options - Configuration options.
@@ -116,11 +143,7 @@ interface ZodqlFieldBuilder<FragmentsType extends {} = {}> {
    * @param rawSchema - The base Zod object schema to apply the field to.
    * @returns The modified Zod schema with field metadata attached and fragment schemas merged.
    */
-  toSchema<Schema extends z.ZodObject>(
-    rawSchema: Schema
-  ): undefined extends FragmentsType
-    ? Schema | z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>>
-    : z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>>;
+  toSchema<Schema extends z.ZodObject>(rawSchema: Schema): ToSchemaResult<Schema, FragmentsType>;
 }
 
 /**
@@ -224,11 +247,7 @@ class ZodqlFieldBuilderImplementation<FragmentsType extends {} = {}> implements 
     return this.clone({ unionFragments: { fragments: [...fragments], requireOne } });
   }
 
-  toSchema<Schema extends z.ZodObject>(
-    schema: Schema
-  ): undefined extends FragmentsType
-    ? Schema | z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>>
-    : z.ZodType<ObjectMerge<z.infer<Schema>, FragmentsType>> {
+  toSchema<Schema extends z.ZodObject>(schema: Schema): ToSchemaResult<Schema, FragmentsType> {
     const coreShape = schema.shape;
     const parseSchema = this.unionFragments
       ? this.buildUnionParseSchema(schema, this.unionFragments)

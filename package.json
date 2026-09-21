@@ -3,7 +3,9 @@
   "version": "0.4.0",
   "description": "A utility library for integrating Zod schemas with GraphQL in TypeScript projects.",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/codegen/bin.js"
+  ],
   "files": [
     "dist"
   ],
@@ -13,7 +15,16 @@
       "module": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen/index.d.ts",
+      "module": "./dist/codegen/index.js",
+      "import": "./dist/codegen/index.js",
+      "default": "./dist/codegen/index.js"
     }
+  },
+  "bin": {
+    "zodql-codegen": "./dist/codegen/bin.js"
   },
   "scripts": {
     "example:github-repo-overview": "tsx --tsconfig examples/tsconfig.json examples/github-repo-overview/main.ts",
@@ -23,8 +34,8 @@
     "gen:codegen": "graphql-codegen --config examples/github-repo-overview/alternatives/codegen/codegen.ts",
     "gen:gql-tada": "gql.tada generate-output --tsconfig examples/github-repo-overview/alternatives/tsconfig.json",
     "gen:zeus": "cd examples/github-repo-overview/alternatives/zeus && zeus _ --node --es -- ../schema.graphql",
-    "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript && pnpm run verify:docs",
-    "build": "pnpm run build:lint && pnpm run build:format && pnpm run build:typescript && pnpm run build:docs",
+    "verify": "pnpm run verify:lint && pnpm run verify:format && pnpm run verify:typescript && pnpm run verify:codegen && pnpm run verify:docs",
+    "build": "pnpm run build:lint && pnpm run build:format && pnpm run build:codegen && pnpm run build:typescript && pnpm run build:docs",
     "test": "vitest run --coverage",
     "test:updateSnapshots": "vitest run -u",
     "build:docs": "tsx --tsconfig examples/tsconfig.json scripts/generate-readme.ts",
@@ -38,7 +49,9 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm run build && changeset publish",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "build:codegen": "tsx src/codegen/bin.ts --schema examples/github-repo-overview/alternatives/schema.graphql --out examples/github-repo-overview/generated && tsx src/codegen/bin.ts --schema examples/codegen-abstract/schema.graphql --out examples/codegen-abstract/generated",
+    "verify:codegen": "tsx src/codegen/bin.ts --schema examples/github-repo-overview/alternatives/schema.graphql --out examples/github-repo-overview/generated --check && tsx src/codegen/bin.ts --schema examples/codegen-abstract/schema.graphql --out examples/codegen-abstract/generated --check"
   },
   "keywords": [
     "zod",
@@ -47,9 +60,9 @@
     "schema",
     "validation"
   ],
-  "author": "Mattias Ahlsén <mattias.ahlsen@gmail.com>",
+  "author": "Mattias Ahls\u00e9n <mattias.ahlsen@gmail.com>",
   "contributors": [
-    "Mattias Ahlsén <mattias.ahlsen@gmail.com>"
+    "Mattias Ahls\u00e9n <mattias.ahlsen@gmail.com>"
   ],
   "license": "MIT",
   "repository": {
@@ -89,7 +102,9 @@
     "zod": "4.0.0"
   },
   "peerDependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "graphql": "^16.8.0 || ^17.0.0",
+    "prettier": "^3.0.0"
   },
   "dependencies": {
     "type-fest": "^5.4.2"
@@ -97,5 +112,13 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.12.0+sha512.820a6fbd0d9f04c226638002aead1e45340a9139dd5dc077c1d83ef44aa2481c8eb6637b4c9aa696a3c7e35ba818e49cf27213e5f2b91138d09b7a3e26e898ba"
+  "packageManager": "pnpm@11.12.0+sha512.820a6fbd0d9f04c226638002aead1e45340a9139dd5dc077c1d83ef44aa2481c8eb6637b4c9aa696a3c7e35ba818e49cf27213e5f2b91138d09b7a3e26e898ba",
+  "peerDependenciesMeta": {
+    "graphql": {
+      "optional": true
+    },
+    "prettier": {
+      "optional": true
+    }
+  }
 }

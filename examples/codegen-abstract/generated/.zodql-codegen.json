@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "files": [
+    "AccountStatus.ts",
+    "Organization.ts",
+    "Query.ts",
+    "Repository.ts",
+    "RepositoryOwner.ts",
+    "SearchResult.ts",
+    "User.ts",
+    "scalars.generated.ts"
+  ]
+}

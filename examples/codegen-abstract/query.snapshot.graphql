@@ -1,0 +1,26 @@
+query OwnerAndSearch ($login: String!, $term: String!) {
+  owner (login: $login) {
+    login
+    avatarUrl
+    status
+    pinnedRepository {
+      name
+    }
+    __typename
+    ... on User {
+      bio
+    }
+    ... on Organization {
+      description
+    }
+  }
+  search (term: $term) {
+    __typename
+    ... on User {
+      login
+    }
+    ... on Repository {
+      name
+    }
+  }
+}

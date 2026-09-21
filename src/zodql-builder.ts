@@ -130,11 +130,10 @@ function formatArguments(args: Record<string, string>): string {
  * - Child fields from the field's own core shape are emitted first.
  * - If the field has union fragments, a `__typename` selection is added so the
  *   response can be discriminated at parse time.
- * - Inline regular fragments (`inline: true`) have their fields spread directly
- *   into the block; named regular fragments are referenced via `...FragmentName`.
- * - Union fragments are always referenced via `...FragmentName`; they must be
- *   given a `name` (rather than `inline: true`) or the reference won't resolve
- *   to an emitted fragment definition.
+ * - Fragments — regular and union alike — are emitted by
+ *   {@link buildFragmentSpreadLines}: an inline one (`inline: true`) has its
+ *   fields spread directly into the block, a named one is referenced via
+ *   `...FragmentName` and defined separately.
  *
  * @private
  */
@@ -161,23 +160,39 @@ function buildFieldLines(name: string, schema: any, indent: number): string[] {
   }
 
   for (const fragment of info.regularFragments) {
-    if (fragment.inline) {
-      lines.push(`${childPad}... on ${fragment.on} {`);
-      for (const [fieldName, fieldSchema] of Object.entries(fragment.schema.shape)) {
-        lines.push(...buildFieldLines(fieldName, fieldSchema, childIndent + 1));
-      }
-      lines.push(`${childPad}}`);
-    } else {
-      lines.push(`${childPad}...${fragment.name}`);
-    }
+    lines.push(...buildFragmentSpreadLines(fragment, childIndent));
   }
 
   if (info.unionFragments) {
     for (const fragment of info.unionFragments.fragments) {
-      lines.push(`${childPad}...${fragment.name}`);
+      lines.push(...buildFragmentSpreadLines(fragment, childIndent));
     }
   }
 
+  lines.push(`${pad}}`);
+  return lines;
+}
+
+/**
+ * Emit a fragment where it's attached to a field.
+ *
+ * An inline fragment spreads its fields directly into the parent selection
+ * (`... on Type { … }`); a named one is referenced (`...Name`) and defined
+ * separately by {@link buildFragmentDefinition}.
+ *
+ * @private
+ */
+function buildFragmentSpreadLines(fragment: ZodqlQueryFragment, indent: number): string[] {
+  const pad = INDENT_UNIT.repeat(indent);
+
+  if (!fragment.inline) {
+    return [`${pad}...${fragment.name}`];
+  }
+
+  const lines = [`${pad}... on ${fragment.on} {`];
+  for (const [fieldName, fieldSchema] of Object.entries(fragment.schema.shape)) {
+    lines.push(...buildFieldLines(fieldName, fieldSchema, indent + 1));
+  }
   lines.push(`${pad}}`);
   return lines;
 }
@@ -213,14 +228,15 @@ function collectFragments(shape: z.ZodRawShape): ZodqlQueryFragment[] {
       const info = getFieldInfo(fieldSchema);
       if (!info) continue;
 
-      for (const fragment of info.regularFragments) {
+      const attachedFragments = [...info.regularFragments, ...(info.unionFragments?.fragments ?? [])];
+
+      for (const fragment of attachedFragments) {
         if (!fragment.inline) addFragment(fragment);
       }
-      if (info.unionFragments) {
-        for (const fragment of info.unionFragments.fragments) addFragment(fragment);
-      }
 
-      for (const fragment of info.regularFragments) {
+      // An inline fragment has no definition of its own, but its selection can
+      // still reference named fragments that do need emitting.
+      for (const fragment of attachedFragments) {
         if (fragment.inline) visitShape(fragment.schema.shape);
       }
 
@@ -313,11 +329,14 @@ export function zodql<Schema extends z.ZodObject>(
  * A fragment must either be given a `name` (emitted as a standalone named
  * fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
  * `inline: true` (its fields are spread directly into the parent selection
- * instead, with no separate fragment definition). Union fragments (used with
- * `withUnionFragments()`) must use `name`, since inline fragments have nothing
- * for the `...FragmentName` reference to resolve to. This is enforced at the
- * type level; at runtime, the fragment's schema shape is checked and rejected
- * if empty, since an empty selection set is not valid GraphQL.
+ * instead, with no separate fragment definition). Both forms work everywhere a
+ * fragment is accepted, `withUnionFragments()` included; prefer `inline: true`
+ * when the selection isn't shared, since a named fragment is emitted once per
+ * name across the whole document and two *different* selections under one name
+ * would silently emit only the first.
+ *
+ * At runtime the fragment's schema shape is checked and rejected if empty,
+ * since an empty selection set is not valid GraphQL.
  *
  * @param fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
  * @returns The validated fragment definition for use in queries

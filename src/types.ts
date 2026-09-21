@@ -6,11 +6,15 @@ import type z from "zod";
  *
  * Must be either named or inline, not both:
  * - `{ name: string }` — emitted once as a standalone `fragment Name on Type { ... }`
- *   definition and referenced from attachment points as `...Name`. Required for
- *   fragments passed to `withUnionFragments()`.
+ *   definition and referenced from attachment points as `...Name`. Because the
+ *   definition is keyed by name document-wide, attaching two *different*
+ *   selections under one name emits only the first.
  * - `{ inline: true }` — has no `name` and no standalone definition; its fields
  *   are spread directly into the parent selection as an inline fragment
  *   (`... on Type { ... }`) wherever it's attached.
+ *
+ * Both forms work everywhere a fragment is accepted, `withUnionFragments()`
+ * included.
  */
 export type ZodqlQueryFragment<Shape extends z.ZodRawShape = z.ZodRawShape, On extends string = string> = {
   /** The GraphQL type this fragment applies to, e.g. `... on User`. */
