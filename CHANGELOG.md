@@ -1,5 +1,11 @@
 # @mattiasahlsen/zodql
 
+## 0.4.0
+
+### Minor Changes
+
+- [#30](https://github.com/mattiasahlsen/zodql/pull/30) [`fd35a3b`](https://github.com/mattiasahlsen/zodql/commit/fd35a3b85fd64368d58876bac83568421186bd75) Thanks [@mattiasahlsen](https://github.com/mattiasahlsen)! - Support `.transform()` and `z.preprocess()` on field schemas: the query is now compiled from the underlying object's fields instead of the field being misdetected as a scalar. `.refine()`/`.superRefine()` already worked when applied before `toSchema()`.
+
 ## 0.3.0
 
 ### Minor Changes
