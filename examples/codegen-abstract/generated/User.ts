@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -19,10 +20,10 @@ export type UserPick = {
   readonly __typename?: LeafPick;
   readonly login?: LeafPick;
   readonly avatarUrl?: LeafPick;
+  readonly status?: LeafPick;
+  readonly pinnedRepository?: ObjectSelection<"Repository">;
   /** The user's public profile bio. */
   readonly bio?: LeafPick;
-  /** The state of the user's account. */
-  readonly status?: LeafPick;
   /** When the account was created. */
   readonly createdAt?: LeafPick;
   /** Repositories the user starred. */
@@ -38,8 +39,9 @@ interface UserDefaults {
   __typename: z.ZodLiteral<"User">;
   login: (typeof scalars)["String"];
   avatarUrl: (typeof scalars)["String"];
-  bio: (typeof scalars)["String"];
   status: typeof AccountStatus;
+  pinnedRepository: never;
+  bio: (typeof scalars)["String"];
   createdAt: (typeof scalars)["DateTime"];
   starredRepositoryNames: (typeof scalars)["String"];
   email: (typeof scalars)["String"];
@@ -49,8 +51,9 @@ interface UserWrappers {
   __typename: readonly [];
   login: readonly [];
   avatarUrl: readonly [];
-  bio: readonly ["nullable"];
   status: readonly [];
+  pinnedRepository: readonly ["nullable"];
+  bio: readonly ["nullable"];
   createdAt: readonly ["nullable"];
   starredRepositoryNames: readonly ["nullable", "array"];
   email: readonly ["nullable"];
@@ -64,8 +67,9 @@ const userFields = {
   __typename: { kind: "leaf", schema: () => z.literal("User"), wrappers: [] },
   login: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
   avatarUrl: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
-  bio: { kind: "leaf", schema: () => scalars.String, wrappers: ["nullable"] },
   status: { kind: "leaf", schema: () => AccountStatus, wrappers: [] },
+  pinnedRepository: { kind: "object", wrappers: ["nullable"] },
+  bio: { kind: "leaf", schema: () => scalars.String, wrappers: ["nullable"] },
   createdAt: { kind: "leaf", schema: () => scalars.DateTime, wrappers: ["nullable"] },
   starredRepositoryNames: { kind: "leaf", schema: () => scalars.String, wrappers: ["nullable", "array"] },
   email: { kind: "leaf", schema: () => scalars.String, wrappers: ["nullable"] },
@@ -73,7 +77,7 @@ const userFields = {
 
 /** A user. */
 export function buildUserField<const P extends UserPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, UserPick>
 ): ObjectSelection<"User", UserShape<P>> {
   return buildObjectSelection(userFields, pick as P, "User") as never;
 }

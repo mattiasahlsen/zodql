@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -44,7 +45,7 @@ const languageFields = {
 
 /** A programming language. */
 export function buildLanguageField<const P extends LanguagePick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, LanguagePick>
 ): ObjectSelection<"Language", LanguageShape<P>> {
   return buildObjectSelection(languageFields, pick as P, "Language") as never;
 }

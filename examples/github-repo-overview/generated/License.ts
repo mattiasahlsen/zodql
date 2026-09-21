@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -46,7 +47,7 @@ const licenseFields = {
 
 /** A repository's open source license. */
 export function buildLicenseField<const P extends LicensePick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, LicensePick>
 ): ObjectSelection<"License", LicenseShape<P>> {
   return buildObjectSelection(licenseFields, pick as P, "License") as never;
 }

@@ -68,7 +68,13 @@ export async function resolveOptions(argv: readonly string[]): Promise<CliOption
     throw new Error(`--default-scalar must be "string" or "unknown", got "${defaultScalar}".`);
   }
 
+  // Unvalidated, `Number("abc")` is NaN, and `depth <= NaN` is false on the
+  // first iteration of the closure walk in `filterIr` — so a typo here would
+  // silently emit nothing but `scalars.ts` and exit 0.
   const maxDepth = values["max-depth"] ?? asString(fromFile["maxDepth"]);
+  if (maxDepth !== undefined && (!Number.isInteger(Number(maxDepth)) || Number(maxDepth) < 0)) {
+    throw new Error(`--max-depth must be a non-negative integer, got "${maxDepth}".`);
+  }
 
   return {
     schema: schema.map((path) => resolve(path)),
@@ -104,14 +110,26 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
+/**
+ * Run the CLI, reporting anything that goes wrong as a message rather than a
+ * stack trace.
+ *
+ * Everything the user can get wrong — a missing flag, an unreadable schema, a
+ * syntax error in SDL, an output directory this tool didn't create — surfaces
+ * as a thrown `Error` with a message written for them, so the whole run is
+ * wrapped rather than just option parsing.
+ */
 export async function main(argv: readonly string[], log = console.log): Promise<number> {
-  let options: CliOptions | "help";
   try {
-    options = await resolveOptions(argv);
+    return await run(argv, log);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return 1;
   }
+}
+
+async function run(argv: readonly string[], log: typeof console.log): Promise<number> {
+  const options = await resolveOptions(argv);
 
   if (options === "help") {
     log(USAGE);

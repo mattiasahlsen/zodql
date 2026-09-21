@@ -7,17 +7,21 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
 } from "@mattiasahlsen/zodql/codegen";
 import { scalars } from "./scalars.js";
+import { AccountStatus } from "./AccountStatus.js";
 
 /** An organization. */
 export type OrganizationPick = {
   readonly __typename?: LeafPick;
   readonly login?: LeafPick;
   readonly avatarUrl?: LeafPick;
+  readonly status?: LeafPick;
+  readonly pinnedRepository?: ObjectSelection<"Repository">;
   /** The organization's public description. */
   readonly description?: LeafPick;
   /** Members of the organization. */
@@ -28,6 +32,8 @@ interface OrganizationDefaults {
   __typename: z.ZodLiteral<"Organization">;
   login: (typeof scalars)["String"];
   avatarUrl: (typeof scalars)["String"];
+  status: typeof AccountStatus;
+  pinnedRepository: never;
   description: (typeof scalars)["String"];
   memberLogins: (typeof scalars)["String"];
 }
@@ -36,6 +42,8 @@ interface OrganizationWrappers {
   __typename: readonly [];
   login: readonly [];
   avatarUrl: readonly [];
+  status: readonly [];
+  pinnedRepository: readonly ["nullable"];
   description: readonly ["nullable"];
   memberLogins: readonly ["array", "nullable"];
 }
@@ -51,13 +59,15 @@ const organizationFields = {
   __typename: { kind: "leaf", schema: () => z.literal("Organization"), wrappers: [] },
   login: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
   avatarUrl: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
+  status: { kind: "leaf", schema: () => AccountStatus, wrappers: [] },
+  pinnedRepository: { kind: "object", wrappers: ["nullable"] },
   description: { kind: "leaf", schema: () => scalars.String, wrappers: ["nullable"] },
   memberLogins: { kind: "leaf", schema: () => scalars.String, wrappers: ["array", "nullable"] },
 } as const satisfies Record<keyof OrganizationPick, FieldDef>;
 
 /** An organization. */
 export function buildOrganizationField<const P extends OrganizationPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, OrganizationPick>
 ): ObjectSelection<"Organization", OrganizationShape<P>> {
   return buildObjectSelection(organizationFields, pick as P, "Organization") as never;
 }

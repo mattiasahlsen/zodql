@@ -1,6 +1,10 @@
 # A small schema exercising the parts of GraphQL that the repository-overview
 # example doesn't reach: an interface with common fields, a union with none,
 # enums, list modifiers, and a deprecated field.
+#
+# `RepositoryOwner`'s common fields deliberately cover all three field kinds —
+# scalar, enum and object — because an interface whose common fields are only
+# scalars can't catch an emitter that assumes they always are.
 
 "An ISO-8601 encoded UTC date string."
 scalar DateTime
@@ -18,16 +22,20 @@ interface RepositoryOwner {
   login: String!
   "A URL pointing to the owner's public avatar."
   avatarUrl: String!
+  "The state of the owner's account."
+  status: AccountStatus!
+  "The repository the owner pins to their profile."
+  pinnedRepository: Repository
 }
 
 "A user."
 type User implements RepositoryOwner {
   login: String!
   avatarUrl: String!
+  status: AccountStatus!
+  pinnedRepository: Repository
   "The user's public profile bio."
   bio: String
-  "The state of the user's account."
-  status: AccountStatus!
   "When the account was created."
   createdAt: DateTime
   "Repositories the user starred."
@@ -40,6 +48,8 @@ type User implements RepositoryOwner {
 type Organization implements RepositoryOwner {
   login: String!
   avatarUrl: String!
+  status: AccountStatus!
+  pinnedRepository: Repository
   "The organization's public description."
   description: String
   "Members of the organization."

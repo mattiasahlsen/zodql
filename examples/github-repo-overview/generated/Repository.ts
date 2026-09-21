@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -98,7 +99,7 @@ const repositoryFields = {
 
 /** A repository contains the content for a project. */
 export function buildRepositoryField<const P extends RepositoryPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, RepositoryPick>
 ): ObjectSelection<"Repository", RepositoryShape<P>> {
   return buildObjectSelection(repositoryFields, pick as P, "Repository") as never;
 }

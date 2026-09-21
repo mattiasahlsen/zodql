@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MANIFEST_FILE, checkFiles, writeFiles } from "./write.js";
@@ -61,6 +61,36 @@ describe("writeFiles", () => {
 
     await expect(writeFiles(dir, files)).rejects.toThrow(/not empty and has no/);
     await expect(writeFiles(dir, files, { force: true })).resolves.toBeDefined();
+  });
+
+  /**
+   * The manifest drives `rm`, so a hand-edited or merge-mangled entry is the one
+   * way stale-file cleanup could reach outside `--out` — exactly what the
+   * non-empty-directory guard above exists to prevent.
+   */
+  it("ignores manifest entries that point outside the output directory", async () => {
+    const parent = await freshDir();
+    const dir = join(parent, "out");
+    await mkdir(dir);
+    await writeFile(join(parent, "victim.ts"), "// precious\n", "utf8");
+    await writeFile(
+      join(dir, MANIFEST_FILE),
+      JSON.stringify({ version: 1, files: ["../victim.ts", "/etc/passwd", "A.ts", 42, ""] }),
+      "utf8"
+    );
+
+    const result = await writeFiles(dir, [files[2]!]);
+
+    expect(result.deleted).toEqual(["A.ts"]);
+    expect(await readFile(join(parent, "victim.ts"), "utf8")).toBe("// precious\n");
+  });
+
+  it("keeps a manifest entry in a subdirectory of the output directory", async () => {
+    const dir = await freshDir();
+    await writeFile(join(dir, MANIFEST_FILE), JSON.stringify({ version: 1, files: ["nested/A.ts"] }), "utf8");
+
+    const result = await writeFiles(dir, [files[2]!]);
+    expect(result.deleted).toEqual(["nested/A.ts"]);
   });
 });
 

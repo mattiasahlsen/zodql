@@ -1,7 +1,15 @@
 import type { TypeIr } from "./types.js";
 import { banner, fieldDoc, indent, jsDoc, quote, withDoc } from "./emit-shared.js";
 import { builderName, fieldsConstName } from "./filenames.js";
-import { brandOf, importsFor, selectableFields, type EmitContext } from "./emit-object-type.js";
+import {
+  brandOf,
+  defaultSchemaType,
+  fieldDefEntry,
+  importsFor,
+  pickType,
+  selectableFields,
+  type EmitContext,
+} from "./emit-object-type.js";
 
 /**
  * Emit a builder for a union or interface.
@@ -10,6 +18,10 @@ import { brandOf, importsFor, selectableFields, type EmitContext } from "./emit-
  * own fields; nothing, for a union). Per-implementor selections go under the
  * reserved `__on` key — reserved because GraphQL forbids `__` prefixes on real
  * field names, so it can never collide.
+ *
+ * A common field is an ordinary field, so it can be object- or enum-typed just
+ * like an object type's — hence the shared `pickType` / `defaultSchemaType` /
+ * `fieldDefEntry` helpers rather than a scalars-only shortcut.
  *
  * `__typename` is deliberately absent from the pick: the compiler always adds
  * it, and its value is the discriminator, so it appears in the output type
@@ -26,7 +38,7 @@ export function emitAbstractType(type: Extract<TypeIr, { kind: "abstract" }>, co
   );
 
   const pickMembers = [
-    ...fields.map((field) => withDoc(fieldDoc(field), `readonly ${field.name}?: LeafPick;`)),
+    ...fields.map((field) => withDoc(fieldDoc(field), `readonly ${field.name}?: ${pickType(field, context)};`)),
     withDoc(
       jsDoc(["Per-implementor selections, spread as inline fragments."]),
       `readonly __on?: {\n${indent(onMembers.join("\n"))}\n};`
@@ -41,7 +53,7 @@ export function emitAbstractType(type: Extract<TypeIr, { kind: "abstract" }>, co
     "",
     withDoc(doc, `export type ${name}Pick = {\n${indent(pickMembers.join("\n"))}\n};`),
     "",
-    `interface ${name}Defaults {\n${indent(fields.map((f) => `${f.name}: (typeof scalars)[${quote(f.namedType)}];`).join("\n"))}\n}`,
+    `interface ${name}Defaults {\n${indent(fields.map((f) => `${f.name}: ${defaultSchemaType(f)};`).join("\n"))}\n}`,
     "",
     `interface ${name}Wrappers {\n${indent(fields.map((f) => `${f.name}: readonly [${f.wrappers.map(quote).join(", ")}];`).join("\n"))}\n}`,
     "",
@@ -49,18 +61,21 @@ export function emitAbstractType(type: Extract<TypeIr, { kind: "abstract" }>, co
       `  [K in ${commonKeys}]: ApplyWrappers<${name}Wrappers[K], ResolveLeaf<P[K], ${name}Defaults[K]>>;\n};`,
     "",
     `const ${fieldsConstName(name)} = {\n${indent(
-      fields
-        .map(
-          (f) =>
-            `${f.name}: { kind: "leaf", schema: () => scalars.${f.namedType}, wrappers: [${f.wrappers.map(quote).join(", ")}] },`
-        )
-        .join("\n")
+      fields.map(fieldDefEntry).join("\n")
     )}\n} as const satisfies Record<Exclude<keyof ${name}Pick, "__on">, FieldDef>;`,
     "",
     withDoc(
       doc,
       `export function ${builderName(name)}<const P extends ${name}Pick, RequireOne extends boolean = false>(\n` +
-        `  pick: P & NonEmptyPick<P>,\n` +
+        `  pick: P &\n` +
+        `    NonEmptyPick<P> &\n` +
+        `    NoExcessPick<P, ${name}Pick> & {\n` +
+        // `__on`'s members are a nested literal, which is contextually typed by
+        // `P` — inferred from that same literal — so the outer guard can't see
+        // them. Without this an unknown implementor compiles and silently emits
+        // `... on Bogus { … }`.
+        `      readonly __on?: NoExcessPick<P["__on"], NonNullable<${name}Pick["__on"]>>;\n` +
+        `    },\n` +
         `  options?: {\n` +
         `    readonly requireOne?: RequireOne;\n` +
         `    readonly args?: Record<string, string>;\n` +

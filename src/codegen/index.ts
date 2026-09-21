@@ -13,4 +13,12 @@ export {
   ON_KEY,
   type FieldDef,
 } from "./build-selection.js";
-export type { AbstractOutput, ApplyWrappers, LeafPick, NonEmptyPick, ResolveLeaf, Wrapper } from "./pick.js";
+export type {
+  AbstractOutput,
+  ApplyWrappers,
+  LeafPick,
+  NoExcessPick,
+  NonEmptyPick,
+  ResolveLeaf,
+  Wrapper,
+} from "./pick.js";

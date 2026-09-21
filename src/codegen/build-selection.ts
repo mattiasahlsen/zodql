@@ -49,10 +49,13 @@ function buildShape(defs: Record<string, FieldDef>, pick: object, typeName: stri
   for (const [fieldName, value] of Object.entries(pick)) {
     if (fieldName === ON_KEY || value === undefined || value === false) continue;
 
-    const def = defs[fieldName];
-    if (!def) {
+    // `Object.hasOwn`, not a truthiness check: `defs` is an object literal, so
+    // a plain lookup walks `Object.prototype` and `{ toString: true }` would
+    // sail past the guard into `applyWrappers(undefined, …)`.
+    if (!Object.hasOwn(defs, fieldName)) {
       throw new Error(`Unknown field "${fieldName}" on type "${typeName}".`);
     }
+    const def = defs[fieldName]!;
 
     if (def.kind === "object") {
       if (value === true) {

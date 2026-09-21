@@ -19,7 +19,7 @@ import { expectTypeof } from "../testing/assertType.js";
 import { zodqlField } from "../zodql-field-builder.js";
 import { applyWrappers } from "./build-selection.js";
 import { asSelectionOf, type ObjectSelection } from "./brand.js";
-import type { ApplyWrappers, LeafPick, NonEmptyPick, ResolveLeaf } from "./pick.js";
+import type { ApplyWrappers, LeafPick, NoExcessPick, NonEmptyPick, ResolveLeaf } from "./pick.js";
 
 // Hand-written stands-in for what the generator will emit.
 type LanguagePick = { readonly name?: LeafPick };
@@ -36,7 +36,7 @@ type LanguageShape<P extends LanguagePick> = {
   >;
 };
 declare function buildLanguageField<const P extends LanguagePick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, LanguagePick>
 ): ObjectSelection<"Language", LanguageShape<P>>;
 
 type RepositoryPick = {
@@ -61,7 +61,7 @@ type RepositoryShape<P extends RepositoryPick> = {
   >;
 };
 declare function buildRepositoryField<const P extends RepositoryPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, RepositoryPick>
 ): ObjectSelection<"Repository", RepositoryShape<P>>;
 
 declare const languageSelection: ObjectSelection<"Language", { name: z.ZodString }>;
@@ -121,6 +121,14 @@ export function typeContract() {
   const emptyPick = buildRepositoryField({});
   // @ts-expect-error — unknown field
   const unknownField = buildRepositoryField({ nope: true });
+  // The realistic typo: one bad field among good ones. `NoExcessPick` is what
+  // catches this — `P extends RepositoryPick` doesn't, because every property of
+  // RepositoryPick is optional, and excess-property checking compares against
+  // `P`, inferred from this very literal. TypeScript's weak-type rule only fires
+  // when *nothing* matches, which is why `{ nope: true }` above is not evidence
+  // that this line is covered.
+  // @ts-expect-error — unknown field alongside a valid one
+  const oneBadField = buildRepositoryField({ name: true, nope: true });
   // @ts-expect-error — an object field needs a selection, not `true`
   const objectAsTrue = buildRepositoryField({ primaryLanguage: true });
   // @ts-expect-error — the wrong type's selection in an object slot
@@ -185,6 +193,7 @@ export function typeContract() {
     overridden,
     emptyPick,
     unknownField,
+    oneBadField,
     objectAsTrue,
     wrongChild,
     asConstraint,

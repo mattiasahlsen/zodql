@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -42,7 +43,7 @@ const queryFields = {
 } as const satisfies Record<keyof QueryPick, FieldDef>;
 
 export function buildQueryField<const P extends QueryPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, QueryPick>
 ): ObjectSelection<"Query", QueryShape<P>> {
   return buildObjectSelection(queryFields, pick as P, "Query") as never;
 }

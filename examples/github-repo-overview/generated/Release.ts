@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -56,7 +57,7 @@ const releaseFields = {
 
 /** A release contains the content for a release. */
 export function buildReleaseField<const P extends ReleasePick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, ReleasePick>
 ): ObjectSelection<"Release", ReleaseShape<P>> {
   return buildObjectSelection(releaseFields, pick as P, "Release") as never;
 }

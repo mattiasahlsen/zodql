@@ -18,8 +18,13 @@ const ownerField = buildRepositoryOwnerField(
   {
     login: true,
     avatarUrl: true,
+    // A common field is an ordinary field, so it can be any kind: `status` is an
+    // enum and `pinnedRepository` an object type built by its own builder — not
+    // only the scalars an interface's shared fields are easiest to imagine as.
+    status: true,
+    pinnedRepository: buildRepositoryField({ name: true }),
     __on: {
-      User: buildUserField({ bio: true, status: true }),
+      User: buildUserField({ bio: true }),
       Organization: buildOrganizationField({ description: true }),
     },
   },
@@ -67,7 +72,14 @@ describe("generated builders for interfaces and unions", () => {
 
   it("discriminates implementors on __typename at parse time", () => {
     const parsed = query.schema.parse({
-      owner: { __typename: "User", login: "octocat", avatarUrl: "https://…", bio: "hi", status: "ACTIVE" },
+      owner: {
+        __typename: "User",
+        login: "octocat",
+        avatarUrl: "https://…",
+        status: "ACTIVE",
+        pinnedRepository: { name: "zodql" },
+        bio: "hi",
+      },
       search: [
         { __typename: "User", login: "octocat" },
         { __typename: "Repository", name: "zodql" },
@@ -78,8 +90,9 @@ describe("generated builders for interfaces and unions", () => {
       __typename: "User",
       login: "octocat",
       avatarUrl: "https://…",
-      bio: "hi",
       status: "ACTIVE",
+      pinnedRepository: { name: "zodql" },
+      bio: "hi",
     });
     expect(parsed.search).toHaveLength(2);
   });
@@ -90,6 +103,8 @@ describe("generated builders for interfaces and unions", () => {
         __typename: "Organization",
         login: "anthropics",
         avatarUrl: "https://…",
+        status: "ACTIVE",
+        pinnedRepository: null,
         description: "hi",
         // Belongs to the User branch — must not survive.
         bio: "leaked",
@@ -103,11 +118,23 @@ describe("generated builders for interfaces and unions", () => {
 
   it("accepts an unknown implementor with only the common fields (requireOne defaults to false)", () => {
     const parsed = query.schema.parse({
-      owner: { __typename: "Bot", login: "dependabot", avatarUrl: "https://…" },
+      owner: {
+        __typename: "Bot",
+        login: "dependabot",
+        avatarUrl: "https://…",
+        status: "ACTIVE",
+        pinnedRepository: null,
+      },
       search: [],
     });
 
-    expect(parsed.owner).toEqual({ __typename: "Bot", login: "dependabot", avatarUrl: "https://…" });
+    expect(parsed.owner).toEqual({
+      __typename: "Bot",
+      login: "dependabot",
+      avatarUrl: "https://…",
+      status: "ACTIVE",
+      pinnedRepository: null,
+    });
     expect(hasTypename(parsed.owner, "User")).toBe(false);
   });
 
@@ -115,21 +142,65 @@ describe("generated builders for interfaces and unions", () => {
     // `status` is AccountStatus! — the generated enum rejects anything else.
     expect(() =>
       query.schema.parse({
-        owner: { __typename: "User", login: "octocat", avatarUrl: "x", bio: null, status: "NOPE" },
+        owner: {
+          __typename: "User",
+          login: "octocat",
+          avatarUrl: "x",
+          status: "NOPE",
+          pinnedRepository: null,
+          bio: null,
+        },
         search: [],
       })
     ).toThrow();
   });
 
   it("infers a discriminated union from the picked implementors", () => {
+    // The common half carries the enum and object field types straight from the
+    // schema, not the `string` a scalars-only emitter would have produced.
+    type Common = {
+      login: string;
+      avatarUrl: string;
+      status: "ACTIVE" | "SUSPENDED";
+      pinnedRepository: { name: string } | null;
+    };
+
     const owner = null as unknown as z.infer<typeof ownerField>;
     expectTypeof(owner).toBe<
-      | ({ login: string; avatarUrl: string } & { __typename: "Organization" } & { description: string | null })
-      | ({ login: string; avatarUrl: string } & { __typename: "User" } & {
-          bio: string | null;
-          status: "ACTIVE" | "SUSPENDED";
-        })
-      | ({ login: string; avatarUrl: string } & { __typename: string })
+      | (Common & { __typename: "Organization" } & { description: string | null })
+      | (Common & { __typename: "User" } & { bio: string | null })
+      | (Common & { __typename: string })
     >();
   });
 });
+
+/**
+ * Mistakes the generated builders reject at compile time. Never called — `tsc -p
+ * examples` is the assertion runner, so every `@ts-expect-error` below fails the
+ * build if the error it names stops happening.
+ */
+export function typeContract() {
+  // A typo among valid fields. `P extends RepositoryOwnerPick` can't catch this
+  // on its own (every property is optional) and excess-property checking never
+  // runs against `P`, since `P` is inferred from this same literal.
+  // @ts-expect-error — `avatarUrlll` is not a field of RepositoryOwner
+  const typo = buildRepositoryOwnerField({ login: true, avatarUrlll: true });
+
+  // An object-typed common field needs its own builder's result.
+  // @ts-expect-error — `pinnedRepository` selects an object type, not a leaf
+  const objectAsLeaf = buildRepositoryOwnerField({ pinnedRepository: true });
+
+  const wrongImplementor = buildRepositoryOwnerField({
+    // @ts-expect-error — a Repository selection is not an Organization selection
+    __on: { Organization: buildRepositoryField({ name: true }) },
+  });
+
+  // Unknown implementors are caught too: `__on`'s members are a nested literal,
+  // so the outer excess-key guard can't see them and needs its own.
+  const unknownImplementor = buildRepositoryOwnerField({
+    // @ts-expect-error — `Bot` does not implement RepositoryOwner
+    __on: { User: buildUserField({ bio: true }), Bot: buildUserField({ bio: true }) },
+  });
+
+  return { typo, objectAsLeaf, wrongImplementor, unknownImplementor };
+}

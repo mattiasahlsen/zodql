@@ -7,6 +7,7 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -44,7 +45,7 @@ const issueConnectionFields = {
 
 /** The connection type for Issue. */
 export function buildIssueConnectionField<const P extends IssueConnectionPick>(
-  pick: P & NonEmptyPick<P>
+  pick: P & NonEmptyPick<P> & NoExcessPick<P, IssueConnectionPick>
 ): ObjectSelection<"IssueConnection", IssueConnectionShape<P>> {
   return buildObjectSelection(issueConnectionFields, pick as P, "IssueConnection") as never;
 }

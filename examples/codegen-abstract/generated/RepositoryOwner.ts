@@ -8,11 +8,13 @@ import {
   type ApplyWrappers,
   type FieldDef,
   type LeafPick,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
 } from "@mattiasahlsen/zodql/codegen";
 import { scalars } from "./scalars.js";
+import { AccountStatus } from "./AccountStatus.js";
 
 /** Represents an owner of a repository. */
 export type RepositoryOwnerPick = {
@@ -20,6 +22,10 @@ export type RepositoryOwnerPick = {
   readonly login?: LeafPick;
   /** A URL pointing to the owner's public avatar. */
   readonly avatarUrl?: LeafPick;
+  /** The state of the owner's account. */
+  readonly status?: LeafPick;
+  /** The repository the owner pins to their profile. */
+  readonly pinnedRepository?: ObjectSelection<"Repository">;
   /** Per-implementor selections, spread as inline fragments. */
   readonly __on?: {
     readonly Organization?: ObjectSelection<"Organization">;
@@ -30,11 +36,15 @@ export type RepositoryOwnerPick = {
 interface RepositoryOwnerDefaults {
   login: (typeof scalars)["String"];
   avatarUrl: (typeof scalars)["String"];
+  status: typeof AccountStatus;
+  pinnedRepository: never;
 }
 
 interface RepositoryOwnerWrappers {
   login: readonly [];
   avatarUrl: readonly [];
+  status: readonly [];
+  pinnedRepository: readonly ["nullable"];
 }
 
 type RepositoryOwnerCommonShape<P extends RepositoryOwnerPick> = {
@@ -47,11 +57,17 @@ type RepositoryOwnerCommonShape<P extends RepositoryOwnerPick> = {
 const repositoryOwnerFields = {
   login: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
   avatarUrl: { kind: "leaf", schema: () => scalars.String, wrappers: [] },
+  status: { kind: "leaf", schema: () => AccountStatus, wrappers: [] },
+  pinnedRepository: { kind: "object", wrappers: ["nullable"] },
 } as const satisfies Record<Exclude<keyof RepositoryOwnerPick, "__on">, FieldDef>;
 
 /** Represents an owner of a repository. */
 export function buildRepositoryOwnerField<const P extends RepositoryOwnerPick, RequireOne extends boolean = false>(
-  pick: P & NonEmptyPick<P>,
+  pick: P &
+    NonEmptyPick<P> &
+    NoExcessPick<P, RepositoryOwnerPick> & {
+      readonly __on?: NoExcessPick<P["__on"], NonNullable<RepositoryOwnerPick["__on"]>>;
+    },
   options?: {
     readonly requireOne?: RequireOne;
     readonly args?: Record<string, string>;

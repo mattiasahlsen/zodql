@@ -7,6 +7,7 @@ import {
   type AbstractSelection,
   type ApplyWrappers,
   type FieldDef,
+  type NoExcessPick,
   type NonEmptyPick,
   type ObjectSelection,
   type ResolveLeaf,
@@ -37,7 +38,11 @@ const searchResultFields = {} as const satisfies Record<Exclude<keyof SearchResu
 
 /** Anything the search endpoint can return. */
 export function buildSearchResultField<const P extends SearchResultPick, RequireOne extends boolean = false>(
-  pick: P & NonEmptyPick<P>,
+  pick: P &
+    NonEmptyPick<P> &
+    NoExcessPick<P, SearchResultPick> & {
+      readonly __on?: NoExcessPick<P["__on"], NonNullable<SearchResultPick["__on"]>>;
+    },
   options?: {
     readonly requireOne?: RequireOne;
     readonly args?: Record<string, string>;

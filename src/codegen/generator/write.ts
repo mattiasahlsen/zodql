@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, normalize, sep } from "node:path";
 import type { GeneratedFile } from "./types.js";
 
 export const MANIFEST_FILE = ".zodql-codegen.json";
@@ -25,10 +24,6 @@ export interface CheckResult {
   readonly ok: boolean;
 }
 
-function hash(contents: string): string {
-  return createHash("sha256").update(contents).digest("hex");
-}
-
 async function readIfPresent(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
@@ -37,13 +32,29 @@ async function readIfPresent(path: string): Promise<string | null> {
   }
 }
 
+/**
+ * A manifest entry only ever names a file this generator wrote, which is always
+ * a plain relative path directly inside the output directory.
+ *
+ * The manifest drives `rm`, so anything else is dropped rather than trusted: a
+ * hand-edited or merge-mangled `files` entry like `../src/index.ts` would
+ * otherwise delete outside `--out`, which is the one thing
+ * {@link assertSafeOutputDir} exists to prevent.
+ */
+function isManagedPath(entry: unknown): entry is string {
+  if (typeof entry !== "string" || entry === "") return false;
+  if (isAbsolute(entry)) return false;
+  const normalized = normalize(entry);
+  return normalized !== ".." && !normalized.startsWith(`..${sep}`);
+}
+
 async function readManifest(outDir: string): Promise<Manifest | null> {
   const raw = await readIfPresent(join(outDir, MANIFEST_FILE));
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed === "object" && parsed !== null && Array.isArray((parsed as Manifest).files)) {
-      return parsed as Manifest;
+      return { version: 1, files: (parsed as Manifest).files.filter(isManagedPath) };
     }
   } catch {
     // A corrupt manifest is treated as absent; the guard below still applies.
@@ -131,7 +142,7 @@ export async function checkFiles(outDir: string, files: readonly GeneratedFile[]
   for (const file of managed) {
     const existing = await readIfPresent(join(outDir, file.path));
     if (existing === null) added.push(file.path);
-    else if (hash(existing) !== hash(file.contents)) changed.push(file.path);
+    else if (existing !== file.contents) changed.push(file.path);
   }
 
   const expected = new Set(managed.map((file) => file.path));

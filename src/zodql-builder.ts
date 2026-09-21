@@ -130,11 +130,10 @@ function formatArguments(args: Record<string, string>): string {
  * - Child fields from the field's own core shape are emitted first.
  * - If the field has union fragments, a `__typename` selection is added so the
  *   response can be discriminated at parse time.
- * - Inline regular fragments (`inline: true`) have their fields spread directly
- *   into the block; named regular fragments are referenced via `...FragmentName`.
- * - Union fragments are always referenced via `...FragmentName`; they must be
- *   given a `name` (rather than `inline: true`) or the reference won't resolve
- *   to an emitted fragment definition.
+ * - Fragments — regular and union alike — are emitted by
+ *   {@link buildFragmentSpreadLines}: an inline one (`inline: true`) has its
+ *   fields spread directly into the block, a named one is referenced via
+ *   `...FragmentName` and defined separately.
  *
  * @private
  */
@@ -330,11 +329,14 @@ export function zodql<Schema extends z.ZodObject>(
  * A fragment must either be given a `name` (emitted as a standalone named
  * fragment, e.g. `...UserFields`, referenced wherever it's attached) or marked
  * `inline: true` (its fields are spread directly into the parent selection
- * instead, with no separate fragment definition). Union fragments (used with
- * `withUnionFragments()`) must use `name`, since inline fragments have nothing
- * for the `...FragmentName` reference to resolve to. This is enforced at the
- * type level; at runtime, the fragment's schema shape is checked and rejected
- * if empty, since an empty selection set is not valid GraphQL.
+ * instead, with no separate fragment definition). Both forms work everywhere a
+ * fragment is accepted, `withUnionFragments()` included; prefer `inline: true`
+ * when the selection isn't shared, since a named fragment is emitted once per
+ * name across the whole document and two *different* selections under one name
+ * would silently emit only the first.
+ *
+ * At runtime the fragment's schema shape is checked and rejected if empty,
+ * since an empty selection set is not valid GraphQL.
  *
  * @param fragmentParam - Fragment definition containing name, on (type), schema, and inline flag
  * @returns The validated fragment definition for use in queries

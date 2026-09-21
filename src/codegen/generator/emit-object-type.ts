@@ -20,15 +20,20 @@ export function selectableFields(type: { fields: readonly FieldIr[] }, context: 
   return type.fields.filter((field) => field.kind === "scalar" || context.emitted.has(field.namedType));
 }
 
-/** The pick-property type for one field. */
-function pickType(field: FieldIr, context: EmitContext): string {
+/**
+ * The pick-property type for one field.
+ *
+ * Shared with {@link emitAbstractType}: an interface's common fields are just
+ * fields, so they can be object- or enum-typed exactly like an object type's.
+ */
+export function pickType(field: FieldIr, context: EmitContext): string {
   if (field.kind === "object") return `ObjectSelection<${brandOf(context, field.namedType)}>`;
   if (field.kind === "abstract") return `AbstractSelection<${brandOf(context, field.namedType)}>`;
   return "LeafPick";
 }
 
 /** The default schema's *type*, used in the `Defaults` interface. */
-function defaultSchemaType(field: FieldIr): string {
+export function defaultSchemaType(field: FieldIr): string {
   if (field.kind === "object" || field.kind === "abstract") return "never";
   if (field.kind === "enum") return `typeof ${field.namedType}`;
   return `(typeof scalars)[${quote(field.namedType)}]`;
@@ -40,7 +45,7 @@ function defaultSchemaValue(field: FieldIr): string {
   return `scalars.${field.namedType}`;
 }
 
-function fieldDefEntry(field: FieldIr): string {
+export function fieldDefEntry(field: FieldIr): string {
   const wrappers = `[${field.wrappers.map(quote).join(", ")}]`;
   if (field.kind === "object" || field.kind === "abstract") {
     return `${field.name}: { kind: "object", wrappers: ${wrappers} },`;
@@ -74,6 +79,7 @@ export function importsFor(
     ...(fields.some((field) => field.kind !== "object" && field.kind !== "abstract") || options.typenameLiteral
       ? ["type LeafPick"]
       : []),
+    "type NoExcessPick",
     "type NonEmptyPick",
     // An abstract type needs ObjectSelection for its `__on` members even when
     // none of its own common fields are object-typed.
@@ -144,7 +150,7 @@ export function emitObjectType(type: Extract<TypeIr, { kind: "object" }>, contex
     withDoc(
       doc,
       `export function ${builderName(name)}<const P extends ${name}Pick>(\n` +
-        `  pick: P & NonEmptyPick<P>\n` +
+        `  pick: P & NonEmptyPick<P> & NoExcessPick<P, ${name}Pick>\n` +
         `): ObjectSelection<${brandOf(context, name)}, ${name}Shape<P>> {\n` +
         `  return buildObjectSelection(${fieldsConstName(name)}, pick as P, ${quote(name)}) as never;\n}`
     ),

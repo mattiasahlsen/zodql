@@ -13,6 +13,13 @@ type AsObject<T> = T extends {} ? T : never;
  * (rather than widening to `z.ZodType`) is strictly more precise. It also
  * matters for callers who rely on the schema staying a `ZodObject` — `.extend()`
  * and friends, and any type-level tag carried in the object's `Config`.
+ *
+ * One caveat: that fresh `z.object()` doesn't carry the input's catchall, so a
+ * `z.strictObject()` or `z.looseObject()` passed in comes back typed as itself
+ * but behaving like a plain stripping object. The runtime has always done this;
+ * before this type existed the widened return simply hid it. Unknown keys are
+ * dropped from a GraphQL response either way, so it only matters if you were
+ * relying on `z.strictObject()` to *reject* them.
  */
 type ToSchemaResult<Schema extends z.ZodObject, FragmentsType extends {}> =
   IsEqual<FragmentsType, {}> extends true
